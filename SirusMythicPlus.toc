@@ -1,0 +1,39 @@
+## Interface: 30300
+## Title: |cff00ff00Sirus|r|cffffffffMythicPlus|r
+## Notes: Показывает рейтинг Мифик+, лучший ключ и список данжей в тултипе
+## Author: |cfff50e5fNastyaLove|r
+## Version: 0.0.1
+## SavedVariables: SMPConfigDB
+
+# Libs
+embeds.xml
+
+# Loader
+Modules\Libs\SMPLoader.lua
+
+# Compat
+Modules\Libs\SMPCompat.lua
+
+# Core libs
+Modules\Libs\SMPLib.lua
+Modules\Libs\ThreadLib.lua
+Modules\Libs\SMPMessageBus.lua
+
+# Config
+Modules\Config\SMPConfigDefaults.lua
+Modules\Config\SMPConfig.lua
+
+# Database
+Modules\Database\SMPDataSchema.lua
+Modules\Database\SMPData.lua
+Modules\Database\Data\LadderData.lua
+
+# Core
+Modules\Core\SMPEventHandler.lua
+Modules\Core\SMPSlash.lua
+
+# Tooltip
+Modules\Tooltip\SMPTaboo.lua
+
+# Main
+SMP.lua
