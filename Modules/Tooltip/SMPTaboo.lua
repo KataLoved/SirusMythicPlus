@@ -367,6 +367,7 @@ local function renderTooltip(tt, unit)
             C_MythicPlus.RequestPlayerStat(name)
         end
     end
+
     local rank = getLadderRank(name)
     local ladderEntry = SMPData:LadderLookup(name)
     local cfg = SMPConfig:GetProfileConfig("tooltip") or {}

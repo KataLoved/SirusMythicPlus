@@ -1,3 +1,3 @@
 @echo off
-python "%~dp0update_ladder.py"
+powershell -ExecutionPolicy Bypass -File "%~dp0update_ladder.ps1"
 pause
