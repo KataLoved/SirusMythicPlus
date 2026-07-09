@@ -141,6 +141,14 @@ function SMPConfig:GetProfileConfig(path)
     return self:Get(path, SCOPES.profile)
 end
 
+function SMPConfig:GetGlobalConfig(path)
+    return self:Get(path, SCOPES.global)
+end
+
+function SMPConfig:UpdateGlobalConfig(path, value)
+    return self:Set(path, value, SCOPES.global)
+end
+
 function SMPConfig:OnProfileChanged()
     SMPMessageBus.shared:Fire("ConfigChanged")
 end

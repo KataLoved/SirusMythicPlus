@@ -202,8 +202,8 @@ local function getOtherRunStats(playerName)
         local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
         if statInfo and statInfo.level and statInfo.level > 0 then
             total = total + 1
-            local mapUIInfo = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-            if mapUIInfo and statInfo.durationSec and statInfo.durationSec <= mapUIInfo.criteriaCount1 then
+            local _, _, timer = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
+            if statInfo.durationSec and timer and statInfo.durationSec <= timer then
                 timed = timed + 1
             end
         end
@@ -351,13 +351,21 @@ local function getLadderRank(playerName)
         end
     end
 
-    C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, playerName)
+    local ok, err = pcall(function()
+        C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, playerName)
+    end)
+
+    if not ok then
+        print("|cffff0000SMP|r: C_Ladder.RequestSearch error for '" .. tostring(playerName) .. "': " .. tostring(err))
+    end
+
     return nil
 end
 
 ---@param tt table
 ---@param unit string
 local function renderTooltip(tt, unit)
+    if not UnitIsPlayer(unit) then return end
     if UnitIsEnemy("player", unit) then return end
 
     local name = UnitName(unit)
@@ -415,7 +423,14 @@ local function renderTooltip(tt, unit)
         addPair(tt, "Место в ладдере", formatRank(ladderEntry.rank) or tostring(ladderEntry.rank))
     end
 
-    addPair(tt, "Макс. ключ", fmtKey(bestLevel, bestDungeon) or "-")
+    local keyText = fmtKey(bestLevel, bestDungeon)
+    if keyText then
+        addPair(tt, "Макс. ключ", keyText)
+    elseif not isLocal and bestLevel == nil then
+        addPair(tt, "Макс. ключ", "|cffffd100Загрузка...|r")
+    else
+        addPair(tt, "Макс. ключ", "-")
+    end
 
     local showDungeonList = IsShiftKeyDown() or cfg.showDungeonListAlways
     if showDungeonList then
@@ -441,9 +456,13 @@ local function renderTooltip(tt, unit)
         else
             local timed, total = getOtherRunStats(name)
             if total > 0 then
-                addPair(tt, "Забеги (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
+                addPair(tt, "Лучшее за сезон (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
             else
-                C_MythicPlus.RequestPlayerStat(name)
+                addPair(tt, "Лучшее за сезон", "|cffffd100Загрузка...|r")
+                local ok, ret = pcall(function()
+                    return C_MythicPlus.RequestPlayerStat(name)
+                end)
+                print("|c00ff00SMP|r: RequestPlayerStat('" .. name .. "') = " .. tostring(ret) .. " (ok=" .. tostring(ok) .. ")")
             end
         end
     end
@@ -452,17 +471,11 @@ end
 local function onTooltipSetUnit(tt)
     if not private.isAvailable() then return end
 
-    local ok = pcall(function()
-        local _, unit = tt:GetUnit()
-        if not unit or not UnitIsPlayer(unit) then return end
+    local _, unit = tt:GetUnit()
+    if not unit or not UnitIsPlayer(unit) then return end
 
-        private.currentTooltipGUID = UnitGUID(unit)
-        renderTooltip(tt, unit)
-    end)
-
-    if not ok then
-        tt:AddLine("|cffff0000SirusMythicPlus error|r")
-    end
+    private.currentTooltipGUID = UnitGUID(unit)
+    renderTooltip(tt, unit)
 end
 
 local function onTooltipCleared()
@@ -477,21 +490,59 @@ end
 function private.testLadderSafety()
     if not C_Ladder or not C_Ladder.RequestSearch then
         private.ladderSafe = false
+		SMPTaboo:Print("|cffff0000SMP|r: C_Ladder not available, ladder rank disabled")
         return
     end
 
-    local ok = pcall(function()
+	SMPTaboo:Print("|c00ff00SMP|r: Testing C_Ladder.RequestSearch...")
+
+    local ok, err = pcall(function()
         C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, "SMPTest")
     end)
 
-    if not ok then
+    if ok then
+        private.ladderSafe = true
+		SMPTaboo:Print("|c00ff00SMP|r: C_Ladder.RequestSearch OK, ladder rank enabled")
+    else
         private.ladderSafe = false
-        print("|cffff0000SirusMythicPlus|r: |cffff6666C_Ladder.RequestSearch вызывает ошибку. Место в ладдере отключено.|r")
+		SMPTaboo:Print("|cffff0000SMP|r: C_Ladder.RequestSearch FAILED.")
+		SMPTaboo:Print("|cffff0000SMP|r: Ladder rank disabled")
+    end
+end
+
+function private.patchLadderFrames()
+    local frames = {
+        "PVPLadderFrame",
+        "RenegadeLadderFrame",
+        "LadderDummyFrame",
+        "LadderMythicPlusFrame",
+    }
+
+    for _, frameName in ipairs(frames) do
+        local frame = _G[frameName]
+        if frame and frame.Container and frame.Container.RightContainer
+           and frame.Container.RightContainer.TopContainer then
+            local top = frame.Container.RightContainer.TopContainer
+            if not top.SearchFrame then
+                top.SearchFrame = CreateFrame("Frame", nil, top)
+                top.SearchFrame.SearchButton = CreateFrame("Button", nil, top.SearchFrame)
+                top.SearchFrame.SearchButton.StartDelay = function() end
+            end
+            if not top.SearchButton then
+                top.SearchButton = top.SearchFrame.SearchButton
+            end
+        end
     end
 end
 
 function SMPTaboo:Initialize()
-    private.testLadderSafety()
+    private.patchLadderFrames()
+    C_Timer.After(2, function()
+        private.testLadderSafety()
+        if C_MythicPlus.RequestMapInfo then
+            C_MythicPlus.RequestMapInfo()
+        end
+    end)
     GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
     GameTooltip:HookScript("OnTooltipCleared", onTooltipCleared)
 end
