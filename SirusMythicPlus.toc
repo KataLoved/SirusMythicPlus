@@ -2,7 +2,7 @@
 ## Title: |cff00ff00Sirus|r|cffffffffMythicPlus|r
 ## Notes: Показывает рейтинг Мифик+, лучший ключ и список данжей в тултипе
 ## Author: |cfff50e5fNastyaLove|r
-## Version: 0.0.1
+## Version: 0.0.34
 ## SavedVariables: SMPConfigDB
 
 # Libs
@@ -34,6 +34,9 @@ Modules\Core\SMPSlash.lua
 
 # Tooltip
 Modules\Tooltip\SMPTaboo.lua
+
+# UI
+Modules\UI\SMPMinimapButton.lua
 
 # Main
 SMP.lua

@@ -11,12 +11,15 @@ local SMPEventHandler = SMPLoader:ImportModule("SMPEventHandler")
 local SMPSlash = SMPLoader:ImportModule("SMPSlash")
 ---@type SMPTaboo
 local SMPTaboo = SMPLoader:ImportModule("SMPTaboo")
+---@type SMPMinimapButton
+local SMPMinimapButton = SMPLoader:ImportModule("SMPMinimapButton")
 
 function SMP:OnInitialize()
     SMPConfig:Initialize()
     SMPEventHandler:RegisterEvents()
     SMPSlash:RegisterCommands()
     SMPTaboo:Initialize()
+    SMPMinimapButton:Initialize()
 end
 
 function SMP:OnEnable()

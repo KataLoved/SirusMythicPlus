@@ -35,6 +35,7 @@ local SCORE_STOPS = {
 
 private.currentTooltipGUID = nil
 private.isRefreshing = false
+private.ladderSafe = true
 
 ---@param x number
 ---@param a number
@@ -186,6 +187,31 @@ local function getLocalRunStats()
     return timed, total
 end
 
+---@param playerName string
+---@return number timed
+---@return number total
+local function getOtherRunStats(playerName)
+    local mapsTable = C_ChallengeMode.GetMapTable()
+    if not mapsTable or #mapsTable == 0 then return 0, 0 end
+
+    local timed = 0
+    local total = 0
+
+    for i = 1, #mapsTable do
+        local mapChallengeModeID = mapsTable[i]
+        local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
+        if statInfo and statInfo.level and statInfo.level > 0 then
+            total = total + 1
+            local mapUIInfo = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
+            if mapUIInfo and statInfo.durationSec and statInfo.durationSec <= mapUIInfo.criteriaCount1 then
+                timed = timed + 1
+            end
+        end
+    end
+
+    return timed, total
+end
+
 ---@return number|nil bestLevel
 ---@return string|nil bestDungeon
 local function findLocalBestKey()
@@ -312,6 +338,7 @@ end
 ---@param playerName string
 ---@return number|nil rank
 local function getLadderRank(playerName)
+    if not private.ladderSafe then return nil end
     if not C_Ladder or not C_Ladder.RequestSearch then return nil end
 
     local numResults = C_Ladder.GetNumSearchResults(MYTHIC_PLUS_BRACKET)
@@ -411,10 +438,12 @@ local function renderTooltip(tt, unit)
             if total > 0 then
                 addPair(tt, "Забеги (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
             end
-        elseif ladderEntry then
-            if ladderEntry.timed or ladderEntry.total then
-                addPair(tt, "Забеги (в таймер/всего)",
-                    tostring(ladderEntry.timed or "-") .. "/" .. tostring(ladderEntry.total or "—"))
+        else
+            local timed, total = getOtherRunStats(name)
+            if total > 0 then
+                addPair(tt, "Забеги (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
+            else
+                C_MythicPlus.RequestPlayerStat(name)
             end
         end
     end
@@ -445,7 +474,24 @@ function private.isAvailable()
         and C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor
 end
 
+function private.testLadderSafety()
+    if not C_Ladder or not C_Ladder.RequestSearch then
+        private.ladderSafe = false
+        return
+    end
+
+    local ok = pcall(function()
+        C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, "SMPTest")
+    end)
+
+    if not ok then
+        private.ladderSafe = false
+        print("|cffff0000SirusMythicPlus|r: |cffff6666C_Ladder.RequestSearch вызывает ошибку. Место в ладдере отключено.|r")
+    end
+end
+
 function SMPTaboo:Initialize()
+    private.testLadderSafety()
     GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
     GameTooltip:HookScript("OnTooltipCleared", onTooltipCleared)
 end
