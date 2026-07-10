@@ -459,10 +459,12 @@ local function renderTooltip(tt, unit)
                 addPair(tt, "Лучшее за сезон (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
             else
                 addPair(tt, "Лучшее за сезон", "|cffffd100Загрузка...|r")
-                local ok, ret = pcall(function()
+                local ok, err = pcall(function()
                     return C_MythicPlus.RequestPlayerStat(name)
                 end)
-                print("|c00ff00SMP|r: RequestPlayerStat('" .. name .. "') = " .. tostring(ret) .. " (ok=" .. tostring(ok) .. ")")
+				if not ok then
+                	print("|c00ff00SMP|r: RequestPlayerStat('" .. name .. "') = " .. tostring(err))
+				end
             end
         end
     end

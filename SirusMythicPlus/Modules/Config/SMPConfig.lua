@@ -4,6 +4,9 @@ local SMPConfig = SMPLoader:CreateModule("SMPConfig")
 ---@type SMPConfigDefaults
 local SMPConfigDefaults = SMPLoader:ImportModule("SMPConfigDefaults")
 
+---@type SMPMessageBus
+local SMPMessageBus = SMPLoader:ImportModule("SMPMessageBus")
+
 local SCOPES = {
     global = "global",
     profile = "profile",
