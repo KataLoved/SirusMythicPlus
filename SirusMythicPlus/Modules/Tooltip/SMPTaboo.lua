@@ -234,16 +234,28 @@ local function findLocalBestKey()
     return nil, nil
 end
 
----@return table<number, {name: string, level: number}>|nil
+---@return table<number, {name: string, level: number, duration: number, timer: number}>|nil
 local function getLocalAllKeys()
     local mapScoreInfo = C_ChallengeMode.GetMapScoreInfo()
     if not mapScoreInfo then return nil end
 
     local result = {}
     for _, info in ipairs(mapScoreInfo) do
+        local duration = 0
+        local timer = 0
+        if info.level and info.level > 0 then
+            local inTimeInfo = C_MythicPlus.GetSeasonBestForMap(info.mapChallengeModeID)
+            if inTimeInfo then
+                duration = inTimeInfo.durationSec or 0
+            end
+            local _, _, t = C_ChallengeMode.GetMapUIInfo(info.mapChallengeModeID)
+            timer = t or 0
+        end
         result[#result + 1] = {
             name = info.name or "?",
             level = info.level or 0,
+            duration = duration,
+            timer = timer,
         }
     end
 
@@ -285,7 +297,7 @@ local function findOtherBestKey(playerName)
 end
 
 ---@param playerName string
----@return table<number, {name: string, level: number}>|nil
+---@return table<number, {name: string, level: number, duration: number, timer: number}>|nil
 local function getOtherAllKeys(playerName)
     local mapsTable = C_ChallengeMode.GetMapTable()
     if not mapsTable or #mapsTable == 0 then return nil end
@@ -297,10 +309,14 @@ local function getOtherAllKeys(playerName)
         local mapName = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
         local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
         local level = statInfo and statInfo.level or 0
+        local duration = statInfo and statInfo.durationSec or 0
+        local _, _, timer = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
 
         result[#result + 1] = {
             name = mapName or "?",
             level = level,
+            duration = duration,
+            timer = timer or 0,
         }
     end
 
@@ -316,6 +332,11 @@ end
 
 ---@param tt table
 ---@param allKeys table
+local function fmtDuration(sec)
+    if not sec or sec == 0 then return nil end
+    return math.floor(sec / 60) .. ":" .. string.format("%02d", sec % 60)
+end
+
 local function addDungeonList(tt, allKeys)
     if not allKeys or #allKeys == 0 then return end
 
@@ -323,10 +344,17 @@ local function addDungeonList(tt, allKeys)
 
     for _, entry in ipairs(allKeys) do
         local left = "|cffffffff" .. entry.name .. "|r"
-        local right
+        local right = ""
 
         if entry.level > 0 then
-            right = keyColor(entry.level) .. "+" .. entry.level .. "|r"
+            local dur = fmtDuration(entry.duration)
+            local tmr = fmtDuration(entry.timer)
+            if dur and tmr then
+                right = "|cff808080(" .. dur .. "/" .. tmr .. ")|r "
+            else
+                right = "|cff808080(нет данных)|r "
+            end
+            right = right .. keyColor(entry.level) .. "+" .. entry.level .. "|r"
         else
             right = "|cff808080-|r"
         end

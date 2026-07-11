@@ -2,7 +2,7 @@
 ## Title: |cff00ff00Sirus|r|cffffffffMythicPlus|r
 ## Notes: Показывает рейтинг Мифик+, лучший ключ и список данжей в тултипе
 ## Author: |cfff50e5fNastyaLove|r
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariables: SMPConfigDB
 
 # Libs
