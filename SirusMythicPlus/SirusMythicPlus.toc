@@ -2,8 +2,8 @@
 ## Title: |cff00ff00Sirus|r|cffffffffMythicPlus|r
 ## Notes: Показывает рейтинг Мифик+, лучший ключ и список данжей в тултипе
 ## Author: |cfff50e5fNastyaLove|r
-## Version: 1.0.1
-## SavedVariables: SMPConfigDB
+## Version: 1.1.0
+## SavedVariables: SMPConfigDB, SMPOverlayDB
 
 # Libs
 embeds.xml
@@ -23,12 +23,8 @@ Modules\Libs\SMPMessageBus.lua
 Modules\Config\SMPConfigDefaults.lua
 Modules\Config\SMPConfig.lua
 
-# Database
-Modules\Database\SMPDataSchema.lua
-Modules\Database\SMPData.lua
-Modules\Database\Data\LadderData.lua
-
 # Core
+Modules\Core\SMPDebug.lua
 Modules\Core\SMPEventHandler.lua
 Modules\Core\SMPSlash.lua
 
@@ -37,6 +33,17 @@ Modules\Tooltip\SMPTaboo.lua
 
 # UI
 Modules\UI\SMPMinimapButton.lua
+Modules\UI\SMPPlayerSearch.lua
+
+# Data
+Modules\Database\SMPForcesData.lua
+Modules\Database\Data\EnemyForcesData.lua
+Modules\Database\SMPSplitsData.lua
+
+# Overlay
+Modules\Overlay\SMPState.lua
+Modules\Overlay\SMPFrame.lua
+Modules\Overlay\SMPCore.lua
 
 # Main
 SMP.lua

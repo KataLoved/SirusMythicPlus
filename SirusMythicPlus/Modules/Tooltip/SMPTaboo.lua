@@ -5,9 +5,6 @@ local private = SMPTaboo.private
 ---@type SMPConfig
 local SMPConfig = SMPLoader:ImportModule("SMPConfig")
 
----@type SMPData
-local SMPData = SMPLoader:ImportModule("SMPData")
-
 local MPLUS_ICON = "Interface\\Icons\\INV_Relics_Hourglass"
 local ICON_SIZE = 14
 local SCORE_MIN = 0
@@ -155,9 +152,8 @@ local function scoreColor(score)
 end
 
 ---@param rank number
----@return string
+---@return string|nil
 local function formatRank(rank)
-    rank = tonumber(rank)
     if not rank then return nil end
 
     if rank <= 20 then
@@ -374,7 +370,7 @@ local function getLadderRank(playerName)
         for i = 1, numResults do
             local rank, name = C_Ladder.GetSearchResultPlayerInfo(MYTHIC_PLUS_BRACKET, i)
             if name and name == playerName then
-                return rank
+                return tonumber(rank)
             end
         end
     end
@@ -428,11 +424,20 @@ local function renderTooltip(tt, unit)
         bestLevel, bestDungeon = findOtherBestKey(name)
         if not bestLevel and C_MythicPlus.RequestPlayerStat then
             C_MythicPlus.RequestPlayerStat(name)
+            C_Timer:After(1, function()
+                if SMPTaboo:IsShown() then
+                    SMPTaboo:RefreshTooltip()
+                end
+            end)
+            C_Timer:After(3, function()
+                if SMPTaboo:IsShown() then
+                    SMPTaboo:RefreshTooltip()
+                end
+            end)
         end
     end
 
     local rank = getLadderRank(name)
-    local ladderEntry = SMPData:LadderLookup(name)
     local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
 
     if cfg.showSeparator ~= false then
@@ -447,8 +452,6 @@ local function renderTooltip(tt, unit)
 
     if rank then
         addPair(tt, "Место в ладдере", formatRank(rank) or tostring(rank))
-    elseif ladderEntry and ladderEntry.rank then
-        addPair(tt, "Место в ладдере", formatRank(ladderEntry.rank) or tostring(ladderEntry.rank))
     end
 
     local keyText = fmtKey(bestLevel, bestDungeon)
@@ -472,6 +475,16 @@ local function renderTooltip(tt, unit)
             allKeys = getOtherAllKeys(name)
             if not allKeys and C_MythicPlus.RequestPlayerStat then
                 C_MythicPlus.RequestPlayerStat(name)
+                C_Timer:After(1, function()
+                    if SMPTaboo:IsShown() then
+                        SMPTaboo:RefreshTooltip()
+                    end
+                end)
+                C_Timer:After(3, function()
+                    if SMPTaboo:IsShown() then
+                        SMPTaboo:RefreshTooltip()
+                    end
+                end)
             end
         end
         addDungeonList(tt, allKeys)
@@ -487,12 +500,19 @@ local function renderTooltip(tt, unit)
                 addPair(tt, "Лучшее за сезон (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
             else
                 addPair(tt, "Лучшее за сезон", "|cffffd100Загрузка...|r")
-                local ok, err = pcall(function()
-                    return C_MythicPlus.RequestPlayerStat(name)
+                pcall(function()
+                    C_MythicPlus.RequestPlayerStat(name)
                 end)
-				if not ok then
-                	print("|c00ff00SMP|r: RequestPlayerStat('" .. name .. "') = " .. tostring(err))
-				end
+                C_Timer:After(1, function()
+                    if SMPTaboo:IsShown() then
+                        SMPTaboo:RefreshTooltip()
+                    end
+                end)
+                C_Timer:After(3, function()
+                    if SMPTaboo:IsShown() then
+                        SMPTaboo:RefreshTooltip()
+                    end
+                end)
             end
         end
     end
@@ -520,11 +540,11 @@ end
 function private.testLadderSafety()
     if not C_Ladder or not C_Ladder.RequestSearch then
         private.ladderSafe = false
-		SMPTaboo:Print("|cffff0000SMP|r: C_Ladder not available, ladder rank disabled")
+		SMP:Print("|cffff0000SMP|r: C_Ladder not available, ladder rank disabled")
         return
     end
 
-	SMPTaboo:Print("|c00ff00SMP|r: Testing C_Ladder.RequestSearch...")
+	SMP:Print("|c00ff00SMP|r: Testing C_Ladder.RequestSearch...")
 
     local ok, err = pcall(function()
         C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, "SMPTest")
@@ -532,11 +552,11 @@ function private.testLadderSafety()
 
     if ok then
         private.ladderSafe = true
-		SMPTaboo:Print("|c00ff00SMP|r: C_Ladder.RequestSearch OK, ladder rank enabled")
+		SMP:Print("|c00ff00SMP|r: C_Ladder.RequestSearch OK, ladder rank enabled")
     else
         private.ladderSafe = false
-		SMPTaboo:Print("|cffff0000SMP|r: C_Ladder.RequestSearch FAILED.")
-		SMPTaboo:Print("|cffff0000SMP|r: Ladder rank disabled")
+		SMP:Print("|cffff0000SMP|r: C_Ladder.RequestSearch FAILED.")
+		SMP:Print("|cffff0000SMP|r: Ladder rank disabled")
     end
 end
 
@@ -567,7 +587,7 @@ end
 
 function SMPTaboo:Initialize()
     private.patchLadderFrames()
-    C_Timer.After(2, function()
+    C_Timer:After(2, function()
         private.testLadderSafety()
         if C_MythicPlus.RequestMapInfo then
             C_MythicPlus.RequestMapInfo()

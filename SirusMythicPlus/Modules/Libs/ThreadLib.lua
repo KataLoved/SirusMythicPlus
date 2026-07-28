@@ -4,7 +4,9 @@ local ThreadLib = SMPLoader:CreateModule("ThreadLib")
 local coStatus = coroutine.status
 local coResume = coroutine.resume
 local coCreate = coroutine.create
-local newTicker = C_Timer.NewTicker
+local newTicker = function(delay, callback, iterations)
+    return C_Timer:NewTicker(delay, callback, iterations)
+end
 
 ---@param threadFunction function
 ---@param delay number

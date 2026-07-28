@@ -5,6 +5,9 @@ local private = SMPMinimapButton.private
 ---@type SMPConfig
 local SMPConfig = SMPLoader:ImportModule("SMPConfig")
 
+---@type SMPPlayerSearch
+local SMPPlayerSearch = SMPLoader:ImportModule("SMPPlayerSearch")
+
 local LibDBIcon = LibStub("LibDBIcon-1.0")
 
 private.dataObject = nil
@@ -23,11 +26,14 @@ function SMPMinimapButton:Initialize()
         OnClick = function(_, button)
             if button == "LeftButton" then
                 LibStub("AceConfigDialog-3.0"):Open("SirusMythicPlus")
+            elseif button == "RightButton" then
+                SMPPlayerSearch:Toggle()
             end
         end,
         OnTooltipShow = function(tooltip)
             tooltip:SetText("|cff00ff00Sirus|r|cffffffffMythicPlus|r", 1, 1, 1)
             tooltip:AddLine("ЛКМ — настройки", 0.9, 0.9, 0.9)
+            tooltip:AddLine("ПКМ — поиск игрока", 0.9, 0.9, 0.9)
         end,
     })
 
