@@ -126,63 +126,34 @@ local function selectOpt(name, path, values, desc, order)
 end
 
 local function fontSelect(name, path, desc, order)
-    local fontValues = {}
-    local builtinFonts = {
-        "Friz Quadrata TT", "Arial Narrow", "Skurri", "Morpheus",
-        "MOKR", "2002", "2002B", "2002Bold", "2002Medium",
-        "AR Crystal Kuzu Bold", "AR Crystal Kuzu DemiBold",
-        "AR ZhongKaiBold", "AR ZhongKaiDemibold",
-        "2002T", "2002BoldItalic", "2002MediumItalic",
-        "2002Light", "2002LightItalic",
-    }
-    for _, f in ipairs(builtinFonts) do
-        fontValues[f] = f
-    end
-	
-    if LibStub then
-        local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0")
-        if ok and lsm then
-            for name, path in pairs(lsm:HashTable("font")) do
-                fontValues[name] = name
-            end
-        end
-    end
     return {
         type = "select",
         name = name,
         desc = desc,
         order = order,
         dialogControl = "LSM30_Font",
-        values = fontValues,
+        values = function()
+            local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0")
+            if ok and lsm then return lsm:HashTable("font") end
+            return { ["Friz Quadrata TT"] = "Friz Quadrata TT" }
+        end,
         get = function() return SMPConfig:GetProfileConfig(path) end,
         set = function(_, v) SMPConfig:UpdateProfileConfig(path, v) end,
     }
 end
 
 local function statusBarSelect(name, path, desc, order)
-    local texValues = {}
-    local builtinTextures = {
-        "Solid", "Blizzard", "BantoBar", "Glaze", "Gloss",
-        "None", "Smooth", "Smooth v2", "Charcoal", "Steel",
-    }
-    for _, t in ipairs(builtinTextures) do
-        texValues[t] = t
-    end
-    if LibStub then
-        local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0")
-        if ok and lsm then
-            for name, path in pairs(lsm:HashTable("statusbar")) do
-                texValues[name] = name
-            end
-        end
-    end
     return {
         type = "select",
         name = name,
         desc = desc,
         order = order,
         dialogControl = "LSM30_Statusbar",
-        values = texValues,
+        values = function()
+            local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0")
+            if ok and lsm then return lsm:HashTable("statusbar") end
+            return { ["Solid"] = "Solid" }
+        end,
         get = function() return SMPConfig:GetProfileConfig(path) end,
         set = function(_, v) SMPConfig:UpdateProfileConfig(path, v) end,
     }
