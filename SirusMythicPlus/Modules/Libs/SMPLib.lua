@@ -68,4 +68,102 @@ function SMPLib:FetchFont(fontName)
     return DEFAULT_FONT_PATH
 end
 
+local SCORE_MIN = 0
+local SCORE_MAX = 2500
+
+local SCORE_STOPS = {
+    { 0.00, 0.12, 0.80, 0.20 },
+    { 0.35, 0.00, 0.44, 0.87 },
+    { 0.65, 0.64, 0.21, 0.93 },
+    { 1.00, 1.00, 0.50, 0.00 },
+}
+
+local function clamp(x, a, b)
+    if x < a then return a end
+    if x > b then return b end
+    return x
+end
+
+local function lerp(a, b, t)
+    return a + (b - a) * t
+end
+
+local function toByte01(x)
+    return math.floor(clamp(x, 0, 1) * 255 + 0.5)
+end
+
+local function rgbToHex(r, g, b)
+    return ("|cff%02x%02x%02x"):format(toByte01(r), toByte01(g), toByte01(b))
+end
+
+function SMPLib:ScoreColor(score)
+    score = tonumber(score or 0) or 0
+    local t = clamp((score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN), 0, 1)
+    local prev = SCORE_STOPS[1]
+    for i = 2, #SCORE_STOPS do
+        local cur = SCORE_STOPS[i]
+        if t <= cur[1] then
+            local span = cur[1] - prev[1]
+            local lt = (span > 0) and ((t - prev[1]) / span) or 0
+            return rgbToHex(lerp(prev[2], cur[2], lt), lerp(prev[3], cur[3], lt), lerp(prev[4], cur[4], lt))
+        end
+        prev = cur
+    end
+    local last = SCORE_STOPS[#SCORE_STOPS]
+    return rgbToHex(last[2], last[3], last[4])
+end
+
+function SMPLib:ScoreColorRGB(score)
+    score = tonumber(score or 0) or 0
+    local t = clamp((score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN), 0, 1)
+    local prev = SCORE_STOPS[1]
+    for i = 2, #SCORE_STOPS do
+        local cur = SCORE_STOPS[i]
+        if t <= cur[1] then
+            local span = cur[1] - prev[1]
+            local lt = (span > 0) and ((t - prev[1]) / span) or 0
+            return { lerp(prev[2], cur[2], lt), lerp(prev[3], cur[3], lt), lerp(prev[4], cur[4], lt) }
+        end
+        prev = cur
+    end
+    local last = SCORE_STOPS[#SCORE_STOPS]
+    return { last[2], last[3], last[4] }
+end
+
+function SMPLib:KeyColor(level)
+    level = tonumber(level or 0) or 0
+    if level >= 15 then return "|cffffd100"
+    elseif level >= 10 then return "|cffa335ee"
+    else return "|cff0070dd" end
+end
+
+function SMPLib:KeyColorRGB(level)
+    level = tonumber(level or 0) or 0
+    if level >= 15 then return { 1.0, 0.82, 0.0 }
+    elseif level >= 10 then return { 0.64, 0.21, 0.93 }
+    else return { 0.0, 0.44, 0.87 } end
+end
+
+function SMPLib:RankColor(rank)
+    if not rank then return "|cff808080" end
+    if rank <= 20 then return "|cffffd100"
+    elseif rank <= 100 then return "|cffff8000"
+    elseif rank <= 1000 then return "|cffa335ee"
+    else return "|cff808080" end
+end
+
+function SMPLib:RankColorRGB(rank)
+    if not rank then return { 0.5, 0.5, 0.5 } end
+    if rank <= 20 then return { 1.0, 0.82, 0.0 }
+    elseif rank <= 100 then return { 1.0, 0.5, 0.0 }
+    elseif rank <= 1000 then return { 0.64, 0.21, 0.93 }
+    else return { 0.5, 0.5, 0.5 } end
+end
+
+function SMPLib:ClassColorRGB(classID)
+    local color = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[classID]
+    if color then return { color.r, color.g, color.b } end
+    return { 1, 1, 1 }
+end
+
 return SMPLib

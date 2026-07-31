@@ -37,56 +37,6 @@ local BORDER_PURPLE = { 0.46, 0.33, 0.55, 0.5 }
 local GREEN = { 0.33, 0.78, 0.47 }
 local RED = { 0.85, 0.33, 0.33 }
 local GRAY = { 0.47, 0.47, 0.47 }
-local WHITE = { 1, 1, 1 }
-local GOLD = { 0.90, 0.78, 0.0 }
-local ORANGE = { 0.91, 0.60, 0.29 }
-local PURPLE_KEY = { 0.64, 0.42, 0.91 }
-local BLUE_KEY = { 0.0, 0.44, 0.87 }
-
-local CLASS_COLORS = {
-    [1] = { 0.78, 0.61, 0.43 }, [2] = { 0.96, 0.55, 0.73 }, [3] = { 0.67, 0.83, 0.45 },
-    [4] = { 1.0, 0.96, 0.41 }, [5] = { 1.0, 1.0, 1.0 },    [6] = { 0.78, 0.61, 0.43 },
-    [7] = { 0.0, 0.44, 0.87 }, [8] = { 0.41, 0.80, 0.94 }, [9] = { 0.58, 0.51, 0.79 },
-    [11] = { 1.0, 0.49, 0.04 },
-}
-
-local function classColor(id) return CLASS_COLORS[id] or WHITE end
-
-local function keyColorRGB(level)
-    level = tonumber(level or 0) or 0
-    if level >= 15 then return GOLD
-    elseif level >= 10 then return PURPLE_KEY
-    else return BLUE_KEY end
-end
-
-local function rankColorRGB(rank)
-    if not rank then return GRAY end
-    if rank <= 20 then return GOLD
-    elseif rank <= 100 then return ORANGE
-    elseif rank <= 1000 then return PURPLE_KEY
-    else return GRAY end
-end
-
-local function scoreColorRGB(score)
-    score = tonumber(score or 0) or 0
-    local t = math.min(1, math.max(0, score / 2500))
-    if t < 0.35 then
-        local lt = t / 0.35
-        return { BLUE_KEY[1] + (PURPLE_KEY[1] - BLUE_KEY[1]) * lt,
-                 BLUE_KEY[2] + (PURPLE_KEY[2] - BLUE_KEY[2]) * lt,
-                 BLUE_KEY[3] + (PURPLE_KEY[3] - BLUE_KEY[3]) * lt }
-    elseif t < 0.65 then
-        local lt = (t - 0.35) / 0.30
-        return { PURPLE_KEY[1] + (ORANGE[1] - PURPLE_KEY[1]) * lt,
-                 PURPLE_KEY[2] + (ORANGE[2] - PURPLE_KEY[2]) * lt,
-                 PURPLE_KEY[3] + (ORANGE[3] - PURPLE_KEY[3]) * lt }
-    else
-        local lt = (t - 0.65) / 0.35
-        return { ORANGE[1] + (GOLD[1] - ORANGE[1]) * lt,
-                 ORANGE[2] + (GOLD[2] - ORANGE[2]) * lt,
-                 ORANGE[3] + (GOLD[3] - ORANGE[3]) * lt }
-    end
-end
 
 local function formatDuration(sec)
     if not sec or sec == 0 then return "-" end
@@ -513,9 +463,9 @@ function private:RenderPlayerList(selectedName)
 
     for _, player in ipairs(private.searchResults) do
         local row = createPlayerRow(nil)
-        local cc = classColor(player.classID)
-        local rc = rankColorRGB(player.rank)
-        local sc = scoreColorRGB(player.score)
+        local cc = SMPLib:ClassColorRGB(player.classID)
+        local rc = SMPLib:RankColorRGB(player.rank)
+        local sc = SMPLib:ScoreColorRGB(player.score)
         local isSelected = player.name == selectedName
 
         row.nameText:SetText(player.name)
@@ -565,9 +515,9 @@ function private:RenderPlayerDetails(selectedName)
     for _, p in ipairs(private.searchResults) do
         if p.name == selectedName then
             found = true
-            local cc = classColor(p.classID)
-            local rc = rankColorRGB(p.rank)
-            local sc = scoreColorRGB(p.score)
+            local cc = SMPLib:ClassColorRGB(p.classID)
+            local rc = SMPLib:RankColorRGB(p.rank)
+            local sc = SMPLib:ScoreColorRGB(p.score)
 
             local header = CreateFrame("Button", nil, nil)
             header:SetHeight(26)
@@ -678,7 +628,7 @@ function private:RenderPlayerDetails(selectedName)
         local bestRow = CreateFrame("Frame", nil, nil)
         bestRow:SetHeight(18)
 
-        local kc = keyColorRGB(bestLevel)
+        local kc = SMPLib:KeyColorRGB(bestLevel)
 
         local bLabel = bestRow:CreateFontString(nil, "OVERLAY")
         bLabel:SetFont(getSearchFontPath(-1))
@@ -742,7 +692,7 @@ function private:RenderPlayerDetails(selectedName)
 
     for _, entry in ipairs(dungeonData) do
         local row = createDungeonRow(nil)
-        local kc = keyColorRGB(entry.level)
+        local kc = SMPLib:KeyColorRGB(entry.level)
 
         row.nameText:SetText(entry.name)
         row.nameText:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
