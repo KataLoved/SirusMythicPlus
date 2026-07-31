@@ -544,6 +544,17 @@ local function getOptions()
                     abbreviateDungeons = toggle("Сокращать названия инстов", "tooltip.abbreviateDungeons", "Бастионы Адского Пламени > БАП", 3),
                 },
             },
+            search = {
+                type = "group",
+                name = "Поиск игроков",
+                inline = true,
+                order = 2,
+                args = {
+                    searchFont = fontSelect("Шрифт", "search.font", "Шрифт для окна поиска игроков", 1),
+                    searchFontSize = range("Размер шрифта", "search.fontSize", 8, 24, 1, "Базовый размер шрифта в окне поиска", 2),
+                    searchFontFlags = fontFlagsSelect("Флаги шрифта", "search.fontFlags", "Outline, Monochrome и т.д.", 3),
+                },
+            },
             overlay = getOverlayOptions(),
             profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(SMPConfig.db),
         },

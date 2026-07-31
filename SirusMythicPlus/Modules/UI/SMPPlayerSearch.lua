@@ -15,6 +15,52 @@ private.selectedPlayer = nil
 local MYTHIC_PLUS_BRACKET = 9
 local MAX_RETRIES = 5
 
+local DEFAULT_FONT = "Fonts\\FRIZQT__.TTF"
+local DEFAULT_FONT_NAME = "Friz Quadrata TT"
+local FONT_PATH_MAP = {
+    ["Friz Quadrata TT"] = "Fonts\\FRIZQT__.TTF",
+    ["Arial Narrow"]     = "Fonts\\ARIALN.TTF",
+    ["Skurri"]           = "Fonts\\SKURRI.TTF",
+    ["Morpheus"]         = "Fonts\\MORPHEUS.TTF",
+    ["MOKR"]             = "Fonts\\MOKR.TTF",
+    ["2002"]             = "Fonts\\2002.TTF",
+    ["2002B"]            = "Fonts\\2002B.TTF",
+    ["2002Bold"]         = "Fonts\\2002Bold.TTF",
+    ["2002Medium"]       = "Fonts\\2002Medium.TTF",
+    ["AR Crystal Kuzu Bold"]     = "Fonts\\AR_Crystal_Kuzu_Bold.TTF",
+    ["AR Crystal Kuzu DemiBold"] = "Fonts\\AR_Crystal_Kuzu_DemiBold.TTF",
+    ["AR ZhongKaiBold"]          = "Fonts\\AR_ZhongKaiBold.TTF",
+    ["AR ZhongKaiDemibold"]      = "Fonts\\AR_ZhongKaiDemibold.TTF",
+    ["2002T"]            = "Fonts\\2002T.TTF",
+    ["2002BoldItalic"]   = "Fonts\\2002BoldItalic.TTF",
+    ["2002MediumItalic"] = "Fonts\\2002MediumItalic.TTF",
+    ["2002Light"]        = "Fonts\\2002Light.TTF",
+    ["2002LightItalic"]  = "Fonts\\2002LightItalic.TTF",
+}
+
+local function getSearchFont()
+    local name = SMPConfig:GetProfileConfig("search.font")
+    if name and FONT_PATH_MAP[name] then
+        return FONT_PATH_MAP[name]
+    end
+    return DEFAULT_FONT
+end
+
+local function getSearchFontSize()
+    return SMPConfig:GetProfileConfig("search.fontSize") or 13
+end
+
+local function getSearchFontFlags()
+    return SMPConfig:GetProfileConfig("search.fontFlags") or ""
+end
+
+local function getSearchFontPath(sizeOffset, flags)
+    local font = getSearchFont()
+    local size = getSearchFontSize() + (sizeOffset or 0)
+    local f = flags or getSearchFontFlags()
+    return font, size, f
+end
+
 local BRAND = { 0.09, 0.52, 0.82 }
 local PURPLE = { 0.46, 0.33, 0.55 }
 local PURPLE_LIGHT = { 0.69, 0.55, 0.82 }
@@ -142,7 +188,7 @@ function private:ShowCopyDialog(url)
         f:SetBackdropBorderColor(PURPLE[1], PURPLE[2], PURPLE[3], 1)
 
         local label = f:CreateFontString(nil, "OVERLAY")
-        label:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+        label:SetFont(getSearchFontPath(-2))
         label:SetPoint("TOPLEFT", 10, -8)
         label:SetText("Ссылка на профиль — Ctrl+C для копирования")
         label:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
@@ -150,7 +196,7 @@ function private:ShowCopyDialog(url)
         local eb = CreateFrame("EditBox", nil, f)
         eb:SetSize(390, 20)
         eb:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -6)
-        eb:SetFont("Fonts\\ARIALN.TTF", 11, "")
+        eb:SetFont(getSearchFontPath(-1))
         eb:SetTextColor(1, 1, 1)
         eb:SetAutoFocus(false)
         eb:SetScript("OnEscapePressed", function() f:Hide() end)
@@ -179,8 +225,8 @@ function private:ShowCopyDialog(url)
     private.copyEditBox:HighlightText()
 end
 
-local ROW_HEIGHT = 28
-local DUNGEON_ROW_HEIGHT = 22
+local ROW_HEIGHT = 30
+local DUNGEON_ROW_HEIGHT = 24
 local SCROLL_INDENT = 4
 
 local function createStyledBackdrop(frame, r, g, b, a, borderR, borderG, borderB, borderA)
@@ -205,30 +251,30 @@ local function createPlayerRow(parent)
     row.bg = bg
 
     local indicator = row:CreateFontString(nil, "OVERLAY")
-    indicator:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
+    indicator:SetFont(getSearchFontPath(0, "OUTLINE"))
     indicator:SetPoint("LEFT", row, "LEFT", 6, 0)
     indicator:SetWidth(14)
     indicator:SetJustifyH("CENTER")
     row.indicator = indicator
 
     local nameText = row:CreateFontString(nil, "OVERLAY")
-    nameText:SetFont("Fonts\\ARIALN.TTF", 11, "")
+    nameText:SetFont(getSearchFontPath(-1))
     nameText:SetPoint("LEFT", indicator, "RIGHT", 2, 0)
     nameText:SetJustifyH("LEFT")
     row.nameText = nameText
 
     local scoreText = row:CreateFontString(nil, "OVERLAY")
-    scoreText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    scoreText:SetFont(getSearchFontPath(-2))
     scoreText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
     scoreText:SetJustifyH("RIGHT")
-    scoreText:SetWidth(44)
+    scoreText:SetWidth(50)
     row.scoreText = scoreText
 
     local rankText = row:CreateFontString(nil, "OVERLAY")
-    rankText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    rankText:SetFont(getSearchFontPath(-2))
     rankText:SetPoint("RIGHT", scoreText, "LEFT", -4, 0)
     rankText:SetJustifyH("RIGHT")
-    rankText:SetWidth(48)
+    rankText:SetWidth(52)
     row.rankText = rankText
 
     nameText:SetPoint("RIGHT", rankText, "LEFT", -6, 0)
@@ -258,28 +304,28 @@ local function createDungeonRow(parent)
     row.bg = bg
 
     local statusText = row:CreateFontString(nil, "OVERLAY")
-    statusText:SetFont("Fonts\\ARIALN.TTF", 11, "OUTLINE")
+    statusText:SetFont(getSearchFontPath(-1, "OUTLINE"))
     statusText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
     statusText:SetJustifyH("RIGHT")
     statusText:SetWidth(14)
     row.statusText = statusText
 
     local timerText = row:CreateFontString(nil, "OVERLAY")
-    timerText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    timerText:SetFont(getSearchFontPath(-2))
     timerText:SetPoint("RIGHT", statusText, "LEFT", -4, 0)
     timerText:SetJustifyH("RIGHT")
     timerText:SetWidth(90)
     row.timerText = timerText
 
     local levelText = row:CreateFontString(nil, "OVERLAY")
-    levelText:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+    levelText:SetFont(getSearchFontPath(-2, "OUTLINE"))
     levelText:SetPoint("RIGHT", timerText, "LEFT", -8, 0)
     levelText:SetJustifyH("RIGHT")
     levelText:SetWidth(36)
     row.levelText = levelText
 
     local nameText = row:CreateFontString(nil, "OVERLAY")
-    nameText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    nameText:SetFont(getSearchFontPath(-2))
     nameText:SetPoint("LEFT", row, "LEFT", 8, 0)
     nameText:SetPoint("RIGHT", levelText, "LEFT", -6, 0)
     nameText:SetJustifyH("LEFT")
@@ -301,7 +347,7 @@ end
 
 local function initScrollContent(scroll)
     local child = CreateFrame("Frame", nil, scroll)
-    child:SetWidth(scroll:GetWidth() - 20)
+    child:SetWidth(scroll:GetWidth() - SCROLL_INDENT)
     child:SetHeight(1)
     scroll:SetScrollChild(child)
     scroll.rows = {}
@@ -353,21 +399,70 @@ function SMPPlayerSearch:CreateFrame()
     if not content then return end
 
     local searchFrame = CreateFrame("Frame", nil, content)
-    searchFrame:SetHeight(30)
+    searchFrame:SetHeight(36)
     searchFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -4)
     searchFrame:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -4)
 
-    local editBox = CreateFrame("EditBox", nil, searchFrame, "InputBoxTemplate")
-    editBox:SetHeight(20)
-    editBox:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 4, -4)
-    editBox:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -80, -4)
-    editBox:SetAutoFocus(false)
-    editBox:SetScript("OnEnterPressed", function(self) private:Search(self:GetText()) end)
+    -- Styled EditBox (no old InputBoxTemplate)
+    local editBoxBg = CreateFrame("Frame", nil, searchFrame)
+    editBoxBg:SetHeight(26)
+    editBoxBg:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 2, -4)
+    editBoxBg:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -82, -4)
+    createStyledBackdrop(editBoxBg, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 1,
+        PURPLE[1], PURPLE[2], PURPLE[3], 0.6)
 
-    local searchBtn = CreateFrame("Button", nil, searchFrame, "UIPanelButtonTemplate")
-    searchBtn:SetSize(70, 22)
-    searchBtn:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -2, -3)
-    searchBtn:SetText("Найти")
+    local editBox = CreateFrame("EditBox", nil, editBoxBg)
+    editBox:SetHeight(26)
+    editBox:SetPoint("TOPLEFT", editBoxBg, "TOPLEFT", 8, 0)
+    editBox:SetPoint("TOPRIGHT", editBoxBg, "TOPRIGHT", -8, 0)
+    editBox:SetAutoFocus(false)
+    editBox:SetFont(getSearchFontPath(0))
+    editBox:SetTextColor(1, 1, 1)
+    editBox:SetScript("OnEnterPressed", function(self) private:Search(self:GetText()) end)
+    editBox:SetScript("OnEscapePressed", function() SMPPlayerSearch:Hide() end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        createStyledBackdrop(editBoxBg, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 1,
+            BRAND[1], BRAND[2], BRAND[3], 0.9)
+    end)
+    editBox:SetScript("OnEditFocusLost", function(self)
+        createStyledBackdrop(editBoxBg, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 1,
+            PURPLE[1], PURPLE[2], PURPLE[3], 0.6)
+    end)
+
+    local placeholder = editBoxBg:CreateFontString(nil, "OVERLAY")
+    placeholder:SetFont(getSearchFontPath(-1))
+    placeholder:SetPoint("LEFT", editBoxBg, "LEFT", 8, 0)
+    placeholder:SetText("Введите имя игрока...")
+    placeholder:SetTextColor(GRAY[1], GRAY[2], GRAY[3], 0.6)
+    editBox.placeholder = placeholder
+    editBox:SetScript("OnTextChanged", function(self)
+        if self:GetText() == "" and not self:HasFocus() then
+            self.placeholder:Show()
+        else
+            self.placeholder:Hide()
+        end
+    end)
+
+    -- Styled search button (no old UIPanelButtonTemplate)
+    local searchBtn = CreateFrame("Button", nil, searchFrame)
+    searchBtn:SetSize(72, 26)
+    searchBtn:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -2, -4)
+    createStyledBackdrop(searchBtn, BRAND[1], BRAND[2], BRAND[3], 0.8,
+        BRAND[1], BRAND[2], BRAND[3], 1)
+    searchBtn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+    local hl = searchBtn:GetHighlightTexture()
+    hl:SetVertexColor(BRAND[1] + 0.15, BRAND[2] + 0.15, BRAND[3] + 0.15, 0.3)
+    local btnText = searchBtn:CreateFontString(nil, "OVERLAY")
+    btnText:SetFont(getSearchFontPath(0))
+    btnText:SetPoint("CENTER", searchBtn, "CENTER", 0, 0)
+    btnText:SetText("Найти")
+    btnText:SetTextColor(1, 1, 1)
+    searchBtn:SetScript("OnMouseDown", function(self)
+        btnText:SetPoint("CENTER", self, "CENTER", 1, -1)
+    end)
+    searchBtn:SetScript("OnMouseUp", function(self)
+        btnText:SetPoint("CENTER", self, "CENTER", 0, 0)
+    end)
     searchBtn:SetScript("OnClick", function() private:Search(editBox:GetText()) end)
 
     local mainFrame = CreateFrame("Frame", nil, content)
@@ -382,14 +477,20 @@ function SMPPlayerSearch:CreateFrame()
         BORDER_PURPLE[1], BORDER_PURPLE[2], BORDER_PURPLE[3], BORDER_PURPLE[4])
 
     local leftLabel = leftPanel:CreateFontString(nil, "OVERLAY")
-    leftLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    leftLabel:SetFont(getSearchFontPath(-1))
     leftLabel:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 8, -6)
     leftLabel:SetText("Результаты")
     leftLabel:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
 
-    local leftScroll = CreateFrame("ScrollFrame", "SMPSearchLeftScroll", leftPanel, "UIPanelScrollFrameTemplate")
-    leftScroll:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, -22)
-    leftScroll:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -20, 4)
+    local leftScroll = CreateFrame("ScrollFrame", "SMPSearchLeftScroll", leftPanel)
+    leftScroll:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 4, -22)
+    leftScroll:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -4, 4)
+    leftScroll:EnableMouseWheel(true)
+    leftScroll:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local max = math.max(0, self:GetVerticalScrollRange())
+        self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * 30)))
+    end)
 
     local rightPanel = CreateFrame("Frame", nil, mainFrame)
     rightPanel:SetPoint("TOPLEFT", leftPanel, "TOPRIGHT", 4, 0)
@@ -397,9 +498,15 @@ function SMPPlayerSearch:CreateFrame()
     createStyledBackdrop(rightPanel, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 0.5,
         0, 0, 0, 0)
 
-    local rightScroll = CreateFrame("ScrollFrame", "SMPSearchRightScroll", rightPanel, "UIPanelScrollFrameTemplate")
+    local rightScroll = CreateFrame("ScrollFrame", "SMPSearchRightScroll", rightPanel)
     rightScroll:SetPoint("TOPLEFT", rightPanel, "TOPLEFT", 4, -4)
-    rightScroll:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", -20, 4)
+    rightScroll:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", -4, 4)
+    rightScroll:EnableMouseWheel(true)
+    rightScroll:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local max = math.max(0, self:GetVerticalScrollRange())
+        self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * 30)))
+    end)
 
     private.aceFrame = frame
     private.mainFrame = wowFrame
@@ -408,8 +515,33 @@ function SMPPlayerSearch:CreateFrame()
     private.rightScroll = rightScroll
     private.leftLabel = leftLabel
 
+    -- Modal overlay: blocks all clicks outside the search window
+    local overlay = CreateFrame("Frame", "SMPSearchOverlay", UIParent)
+    overlay:SetAllPoints(UIParent)
+    overlay:SetFrameStrata("FULLSCREEN_DIALOG")
+    overlay:SetFrameLevel(wowFrame:GetFrameLevel() - 1)
+    overlay:EnableMouse(true)
+    overlay:EnableKeyboard(true)
+    overlay:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then SMPPlayerSearch:Hide() end
+    end)
+    overlay:Hide()
+
+    -- Semi-transparent backdrop on overlay
+    local overlayBg = overlay:CreateTexture(nil, "BACKGROUND")
+    overlayBg:SetAllPoints(overlay)
+    overlayBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+    overlayBg:SetVertexColor(0, 0, 0, 0.35)
+
+    -- Ensure search window is above overlay
+    wowFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    wowFrame:SetFrameLevel(overlay:GetFrameLevel() + 1)
+
+    private.overlay = overlay
+
     frame:SetCallback("OnClose", function()
         if private.copyFrame then private.copyFrame:Hide() end
+        if private.overlay then private.overlay:Hide() end
     end)
 
     frame:Hide()
@@ -422,11 +554,13 @@ function SMPPlayerSearch:Show(playerName)
         if private.editBox then private.editBox:SetText(playerName) end
         private:Search(playerName)
     end
+    if private.overlay then private.overlay:Show() end
     private.aceFrame:Show()
 end
 
 function SMPPlayerSearch:Hide()
     if private.copyFrame then private.copyFrame:Hide() end
+    if private.overlay then private.overlay:Hide() end
     if private.aceFrame then private.aceFrame:Hide() end
 end
 
@@ -441,7 +575,7 @@ function private:RenderPlayerList(selectedName)
     if #private.searchResults == 0 then
         local child = initScrollContent(private.leftScroll)
         local msg = child:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msg:SetFont(getSearchFontPath(-1))
         msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
         msg:SetText("Нет результатов")
         msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
@@ -496,7 +630,7 @@ function private:RenderPlayerDetails(selectedName)
     if not selectedName then
         local child = initScrollContent(private.rightScroll)
         local msg = child:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msg:SetFont(getSearchFontPath(-1))
         msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
         msg:SetText("Выберите игрока из списка")
         msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
@@ -521,31 +655,31 @@ function private:RenderPlayerDetails(selectedName)
             hBg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.6)
 
             local hName = header:CreateFontString(nil, "OVERLAY")
-            hName:SetFont("Fonts\\ARIALN.TTF", 11, "")
+            hName:SetFont(getSearchFontPath(0))
             hName:SetPoint("LEFT", header, "LEFT", 8, 0)
             hName:SetText(p.name)
             hName:SetTextColor(cc[1], cc[2], cc[3])
 
             local hRank = header:CreateFontString(nil, "OVERLAY")
-            hRank:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hRank:SetFont(getSearchFontPath(-1))
             hRank:SetPoint("LEFT", hName, "RIGHT", 8, 0)
             hRank:SetText(p.rank and ("#" .. p.rank) or "")
             hRank:SetTextColor(rc[1], rc[2], rc[3])
 
             local hScore = header:CreateFontString(nil, "OVERLAY")
-            hScore:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hScore:SetFont(getSearchFontPath(-1))
             hScore:SetPoint("LEFT", hRank, "RIGHT", 8, 0)
             hScore:SetText(p.score > 0 and math.floor(p.score) or "")
             hScore:SetTextColor(sc[1], sc[2], sc[3])
 
             local hSep = header:CreateFontString(nil, "OVERLAY")
-            hSep:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hSep:SetFont(getSearchFontPath(-1))
             hSep:SetPoint("LEFT", hScore, "RIGHT", 8, 0)
             hSep:SetText("|")
             hSep:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
 
             local hLink = header:CreateFontString(nil, "OVERLAY")
-            hLink:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hLink:SetFont(getSearchFontPath(-1))
             hLink:SetPoint("LEFT", hSep, "RIGHT", 8, 0)
             hLink:SetText("Профиль")
             hLink:SetTextColor(PURPLE_LIGHT[1], PURPLE_LIGHT[2], PURPLE_LIGHT[3])
@@ -581,7 +715,7 @@ function private:RenderPlayerDetails(selectedName)
         local msg = CreateFrame("Frame", nil, nil)
         msg:SetHeight(16)
         local msgText = msg:CreateFontString(nil, "OVERLAY")
-        msgText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msgText:SetFont(getSearchFontPath(-1))
         msgText:SetPoint("LEFT", msg, "LEFT", 8, 0)
         msgText:SetText("Данные по данжам загружаются...")
         msgText:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
@@ -597,7 +731,7 @@ function private:RenderPlayerDetails(selectedName)
     local sectionTitle = CreateFrame("Frame", nil, nil)
     sectionTitle:SetHeight(18)
     local stText = sectionTitle:CreateFontString(nil, "OVERLAY")
-    stText:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    stText:SetFont(getSearchFontPath(-1))
     stText:SetPoint("CENTER", sectionTitle, "CENTER", 0, 0)
     stText:SetText("── Данные игрока ──")
     stText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
@@ -610,31 +744,31 @@ function private:RenderPlayerDetails(selectedName)
         local kc = keyColorRGB(bestLevel)
 
         local bLabel = bestRow:CreateFontString(nil, "OVERLAY")
-        bLabel:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bLabel:SetFont(getSearchFontPath(-1))
         bLabel:SetPoint("LEFT", bestRow, "LEFT", 8, 0)
         bLabel:SetText("Лучший:")
         bLabel:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
 
         local bKey = bestRow:CreateFontString(nil, "OVERLAY")
-        bKey:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+        bKey:SetFont(getSearchFontPath(-1, "OUTLINE"))
         bKey:SetPoint("LEFT", bLabel, "RIGHT", 4, 0)
         bKey:SetText("+" .. bestLevel)
         bKey:SetTextColor(kc[1], kc[2], kc[3])
 
         local bDungeon = bestRow:CreateFontString(nil, "OVERLAY")
-        bDungeon:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bDungeon:SetFont(getSearchFontPath(-1))
         bDungeon:SetPoint("LEFT", bKey, "RIGHT", 4, 0)
         bDungeon:SetText(bestDungeon)
         bDungeon:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
 
         local bRuns = bestRow:CreateFontString(nil, "OVERLAY")
-        bRuns:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bRuns:SetFont(getSearchFontPath(-1))
         bRuns:SetPoint("RIGHT", bestRow, "RIGHT", -8, 0)
         bRuns:SetText(string.format("Забеги: %d/%d", timed, total))
         bRuns:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
 
         local bRunsLabel = bestRow:CreateFontString(nil, "OVERLAY")
-        bRunsLabel:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bRunsLabel:SetFont(getSearchFontPath(-1))
         bRunsLabel:SetPoint("RIGHT", bRuns, "LEFT", -4, 0)
         bRunsLabel:SetText("Забеги:")
         bRunsLabel:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
@@ -649,7 +783,7 @@ function private:RenderPlayerDetails(selectedName)
     local dungeonTitle = CreateFrame("Frame", nil, nil)
     dungeonTitle:SetHeight(18)
     local dtText = dungeonTitle:CreateFontString(nil, "OVERLAY")
-    dtText:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    dtText:SetFont(getSearchFontPath(-1))
     dtText:SetPoint("CENTER", dungeonTitle, "CENTER", 0, 0)
     dtText:SetText("──────── Данжи ────────")
     dtText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
@@ -735,7 +869,7 @@ function private:Search(playerName)
 
     local child = initScrollContent(private.leftScroll)
     local msg = child:CreateFontString(nil, "OVERLAY")
-    msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    msg:SetFont(getSearchFontPath(-1))
     msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
     msg:SetText("Поиск " .. playerName .. "...")
     msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
