@@ -56,4 +56,16 @@ function SMPLib:GetProfileURL(playerName)
     return "https://sirus.su/base/character/" .. self:GetRealmSlug() .. "/" .. playerName
 end
 
+local DEFAULT_FONT_PATH = "Fonts\\FRIZQT__.TTF"
+
+function SMPLib:FetchFont(fontName)
+    if not fontName or fontName == "" then return DEFAULT_FONT_PATH end
+    local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0")
+    if ok and lsm then
+        local path = lsm:Fetch("font", fontName)
+        if path then return path end
+    end
+    return DEFAULT_FONT_PATH
+end
+
 return SMPLib

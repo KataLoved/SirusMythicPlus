@@ -15,49 +15,13 @@ private.selectedPlayer = nil
 local MYTHIC_PLUS_BRACKET = 9
 local MAX_RETRIES = 5
 
-local DEFAULT_FONT = "Fonts\\FRIZQT__.TTF"
-local DEFAULT_FONT_NAME = "Friz Quadrata TT"
-local FONT_PATH_MAP = {
-    ["Friz Quadrata TT"] = "Fonts\\FRIZQT__.TTF",
-    ["Arial Narrow"]     = "Fonts\\ARIALN.TTF",
-    ["Skurri"]           = "Fonts\\SKURRI.TTF",
-    ["Morpheus"]         = "Fonts\\MORPHEUS.TTF",
-    ["MOKR"]             = "Fonts\\MOKR.TTF",
-    ["2002"]             = "Fonts\\2002.TTF",
-    ["2002B"]            = "Fonts\\2002B.TTF",
-    ["2002Bold"]         = "Fonts\\2002Bold.TTF",
-    ["2002Medium"]       = "Fonts\\2002Medium.TTF",
-    ["AR Crystal Kuzu Bold"]     = "Fonts\\AR_Crystal_Kuzu_Bold.TTF",
-    ["AR Crystal Kuzu DemiBold"] = "Fonts\\AR_Crystal_Kuzu_DemiBold.TTF",
-    ["AR ZhongKaiBold"]          = "Fonts\\AR_ZhongKaiBold.TTF",
-    ["AR ZhongKaiDemibold"]      = "Fonts\\AR_ZhongKaiDemibold.TTF",
-    ["2002T"]            = "Fonts\\2002T.TTF",
-    ["2002BoldItalic"]   = "Fonts\\2002BoldItalic.TTF",
-    ["2002MediumItalic"] = "Fonts\\2002MediumItalic.TTF",
-    ["2002Light"]        = "Fonts\\2002Light.TTF",
-    ["2002LightItalic"]  = "Fonts\\2002LightItalic.TTF",
-}
-
-local function getSearchFont()
-    local name = SMPConfig:GetProfileConfig("search.font")
-    if name and FONT_PATH_MAP[name] then
-        return FONT_PATH_MAP[name]
-    end
-    return DEFAULT_FONT
-end
-
-local function getSearchFontSize()
-    return SMPConfig:GetProfileConfig("search.fontSize") or 13
-end
-
-local function getSearchFontFlags()
-    return SMPConfig:GetProfileConfig("search.fontFlags") or ""
-end
+local DEFAULT_FONT_SIZE = 13
 
 local function getSearchFontPath(sizeOffset, flags)
-    local font = getSearchFont()
-    local size = getSearchFontSize() + (sizeOffset or 0)
-    local f = flags or getSearchFontFlags()
+    local fontName = SMPConfig:GetProfileConfig("search.font")
+    local font = SMPLib:FetchFont(fontName)
+    local size = (SMPConfig:GetProfileConfig("search.fontSize") or DEFAULT_FONT_SIZE) + (sizeOffset or 0)
+    local f = flags or SMPConfig:GetProfileConfig("search.fontFlags") or ""
     return font, size, f
 end
 
@@ -403,7 +367,6 @@ function SMPPlayerSearch:CreateFrame()
     searchFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -4)
     searchFrame:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -4)
 
-    -- Styled EditBox (no old InputBoxTemplate)
     local editBoxBg = CreateFrame("Frame", nil, searchFrame)
     editBoxBg:SetHeight(26)
     editBoxBg:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 2, -4)
@@ -443,7 +406,6 @@ function SMPPlayerSearch:CreateFrame()
         end
     end)
 
-    -- Styled search button (no old UIPanelButtonTemplate)
     local searchBtn = CreateFrame("Button", nil, searchFrame)
     searchBtn:SetSize(72, 26)
     searchBtn:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -2, -4)
@@ -515,7 +477,6 @@ function SMPPlayerSearch:CreateFrame()
     private.rightScroll = rightScroll
     private.leftLabel = leftLabel
 
-    -- Modal overlay: blocks all clicks outside the search window
     local overlay = CreateFrame("Frame", "SMPSearchOverlay", UIParent)
     overlay:SetAllPoints(UIParent)
     overlay:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -527,13 +488,11 @@ function SMPPlayerSearch:CreateFrame()
     end)
     overlay:Hide()
 
-    -- Semi-transparent backdrop on overlay
     local overlayBg = overlay:CreateTexture(nil, "BACKGROUND")
     overlayBg:SetAllPoints(overlay)
     overlayBg:SetTexture("Interface\\Buttons\\WHITE8X8")
     overlayBg:SetVertexColor(0, 0, 0, 0.35)
 
-    -- Ensure search window is above overlay
     wowFrame:SetFrameStrata("FULLSCREEN_DIALOG")
     wowFrame:SetFrameLevel(overlay:GetFrameLevel() + 1)
 
