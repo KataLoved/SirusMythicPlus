@@ -214,16 +214,9 @@ local function createPlayerRow(parent)
     bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.9)
     row.bg = bg
 
-    local indicator = row:CreateFontString(nil, "OVERLAY")
-    indicator:SetFont(getSearchFontPath(0, "OUTLINE"))
-    indicator:SetPoint("LEFT", row, "LEFT", 6, 0)
-    indicator:SetWidth(14)
-    indicator:SetJustifyH("CENTER")
-    row.indicator = indicator
-
     local nameText = row:CreateFontString(nil, "OVERLAY")
     nameText:SetFont(getSearchFontPath(-1))
-    nameText:SetPoint("LEFT", indicator, "RIGHT", 2, 0)
+    nameText:SetPoint("LEFT", row, "LEFT", 8, 0)
     nameText:SetJustifyH("LEFT")
     row.nameText = nameText
 
@@ -477,30 +470,8 @@ function SMPPlayerSearch:CreateFrame()
     private.rightScroll = rightScroll
     private.leftLabel = leftLabel
 
-    local overlay = CreateFrame("Frame", "SMPSearchOverlay", UIParent)
-    overlay:SetAllPoints(UIParent)
-    overlay:SetFrameStrata("FULLSCREEN_DIALOG")
-    overlay:SetFrameLevel(wowFrame:GetFrameLevel() - 1)
-    overlay:EnableMouse(true)
-    overlay:EnableKeyboard(true)
-    overlay:SetScript("OnKeyDown", function(self, key)
-        if key == "ESCAPE" then SMPPlayerSearch:Hide() end
-    end)
-    overlay:Hide()
-
-    local overlayBg = overlay:CreateTexture(nil, "BACKGROUND")
-    overlayBg:SetAllPoints(overlay)
-    overlayBg:SetTexture("Interface\\Buttons\\WHITE8X8")
-    overlayBg:SetVertexColor(0, 0, 0, 0.35)
-
-    wowFrame:SetFrameStrata("FULLSCREEN_DIALOG")
-    wowFrame:SetFrameLevel(overlay:GetFrameLevel() + 1)
-
-    private.overlay = overlay
-
     frame:SetCallback("OnClose", function()
         if private.copyFrame then private.copyFrame:Hide() end
-        if private.overlay then private.overlay:Hide() end
     end)
 
     frame:Hide()
@@ -513,13 +484,11 @@ function SMPPlayerSearch:Show(playerName)
         if private.editBox then private.editBox:SetText(playerName) end
         private:Search(playerName)
     end
-    if private.overlay then private.overlay:Show() end
     private.aceFrame:Show()
 end
 
 function SMPPlayerSearch:Hide()
     if private.copyFrame then private.copyFrame:Hide() end
-    if private.overlay then private.overlay:Hide() end
     if private.aceFrame then private.aceFrame:Hide() end
 end
 
@@ -550,9 +519,6 @@ function private:RenderPlayerList(selectedName)
         local rc = rankColorRGB(player.rank)
         local sc = scoreColorRGB(player.score)
         local isSelected = player.name == selectedName
-
-        row.indicator:SetText(isSelected and ">" or "")
-        row.indicator:SetTextColor(BRAND[1], BRAND[2], BRAND[3])
 
         row.nameText:SetText(player.name)
         row.nameText:SetTextColor(cc[1], cc[2], cc[3])
@@ -692,7 +658,7 @@ function private:RenderPlayerDetails(selectedName)
     local stText = sectionTitle:CreateFontString(nil, "OVERLAY")
     stText:SetFont(getSearchFontPath(-1))
     stText:SetPoint("CENTER", sectionTitle, "CENTER", 0, 0)
-    stText:SetText("── Данные игрока ──")
+    stText:SetText("-------- Данные игрока --------")
     stText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
     addRowToScroll(private.rightScroll, sectionTitle, 18)
 
@@ -744,7 +710,7 @@ function private:RenderPlayerDetails(selectedName)
     local dtText = dungeonTitle:CreateFontString(nil, "OVERLAY")
     dtText:SetFont(getSearchFontPath(-1))
     dtText:SetPoint("CENTER", dungeonTitle, "CENTER", 0, 0)
-    dtText:SetText("──────── Данжи ────────")
+    dtText:SetText("---------- Данжи ----------")
     dtText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
     addRowToScroll(private.rightScroll, dungeonTitle, 18)
 
