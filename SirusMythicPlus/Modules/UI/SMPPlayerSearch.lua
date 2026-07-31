@@ -15,12 +15,12 @@ private.selectedPlayer = nil
 local MYTHIC_PLUS_BRACKET = 9
 local MAX_RETRIES = 5
 
-local BRAND = { r = 0.09, g = 0.52, b = 0.82 }
-local BG_PANEL = { 0.05, 0.05, 0.08, 0.92 }
-local BG_CARD = { 0.08, 0.08, 0.12, 0.85 }
-local BG_ACTIVE = { 0.1, 0.14, 0.2, 0.95 }
-local BORDER_NORMAL = { 0.35, 0.35, 0.4, 0.6 }
-local BORDER_ACTIVE = { BRAND.r, BRAND.g, BRAND.b, 1 }
+local PURPLE_BORDER = { 0.46, 0.33, 0.55, 1 }
+local PURPLE_ACCENT = "|cff76558d"
+local PURPLE_TEXT = "|cffb18bd0"
+local BRAND = "|cff1784d1"
+local GREEN = "|cff54c878"
+local MUTED = "|cff777777"
 
 local CLASS_COLORS = {
     [1] = "ffc79c6e", [2] = "fff58cba", [3] = "ffabd473", [4] = "fffff569",
@@ -58,7 +58,8 @@ local function getSearchResults()
     local num = C_Ladder.GetNumSearchResults(MYTHIC_PLUS_BRACKET)
     if not num or num == 0 then return results end
     for i = 1, num do
-        local rank, name, _, classID, _, _, _, score = C_Ladder.GetSearchResultPlayerInfo(MYTHIC_PLUS_BRACKET, i)        if name then
+        local rank, name, _, classID, _, _, _, score = C_Ladder.GetSearchResultPlayerInfo(MYTHIC_PLUS_BRACKET, i)
+        if name then
             results[#results + 1] = { index = i, rank = rank, name = name, classID = classID, score = score or 0 }
         end
     end
@@ -110,8 +111,8 @@ function private:ShowCopyDialog(url)
             edgeFile = "Interface\\Buttons\\WHITE8X8",
             edgeSize = 1,
         })
-        f:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
-        f:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+        f:SetBackdropColor(0.06, 0.05, 0.07, 0.97)
+        f:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 1)
 
         local label = f:CreateFontString(nil, "OVERLAY")
         label:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
@@ -132,12 +133,10 @@ function private:ShowCopyDialog(url)
         local bg = eb:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints(eb)
         bg:SetTexture("Interface\\Buttons\\WHITE8X8")
-        bg:SetVertexColor(0.15, 0.15, 0.15, 1)
+        bg:SetVertexColor(0.1, 0.08, 0.12, 1)
 
         f:SetScript("OnKeyDown", function(self, key)
-            if key == "ESCAPE" then
-                self:Hide()
-            end
+            if key == "ESCAPE" then self:Hide() end
         end)
 
         private.copyFrame = f
@@ -155,25 +154,71 @@ function private:ShowCopyDialog(url)
     private.copyEditBox:HighlightText()
 end
 
+local function addSectionTitle(container, text)
+    local AceGUI = LibStub("AceGUI-3.0", true)
+    if not AceGUI then return end
+    local h = AceGUI:Create("Heading")
+    h:SetText(text)
+    h:SetFullWidth(true)
+    container:AddChild(h)
+end
+
+local function addDetailLabel(container, text, fontObj)
+    local AceGUI = LibStub("AceGUI-3.0", true)
+    if not AceGUI then return end
+    local l = AceGUI:Create("Label")
+    l:SetText(text)
+    l:SetFullWidth(true)
+    if fontObj then l:SetFontObject(fontObj) end
+    container:AddChild(l)
+end
+
+local function addDungeonRow(container, entry)
+    local AceGUI = LibStub("AceGUI-3.0", true)
+    if not AceGUI then return end
+
+    local durStr = formatDuration(entry.duration)
+    local tmrStr = formatDuration(entry.timer)
+    local statusIcon = entry.timed and (GREEN .. "+|r") or ("|cffff2020-|r")
+    local lvlText = keyColor(entry.level) .. "+" .. entry.level .. "|r"
+
+    local row = AceGUI:Create("Label")
+    row:SetText(entry.name .. "  " .. lvlText .. "  " .. MUTED .. durStr .. " / " .. tmrStr .. "|r  " .. statusIcon)
+    row:SetFullWidth(true)
+    row:SetFontObject(GameFontHighlightSmall)
+    container:AddChild(row)
+end
+
 function SMPPlayerSearch:CreateFrame()
     local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
     if not AceGUI then return end
 
     local frame = AceGUI:Create("Frame")
-    frame:SetTitle("|cff1784d1SMP|r — Поиск игрока")
-    frame:SetWidth(480)
-    frame:SetHeight(580)
+    frame:SetTitle(BRAND .. "SMP|r — Поиск игроков Mythic+")
+    frame:SetWidth(720)
+    frame:SetHeight(430)
     frame:SetLayout("Flow")
     frame:EnableResize(false)
+
+    local wowFrame = frame.frame
+    if wowFrame then
+        wowFrame:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 1)
+        wowFrame:EnableKeyboard(true)
+        wowFrame:SetScript("OnKeyDown", function(self, key)
+            if key == "ESCAPE" then SMPPlayerSearch:Hide() end
+        end)
+    end
 
     local searchRow = AceGUI:Create("SimpleGroup")
     searchRow:SetFullWidth(true)
     searchRow:SetLayout("Flow")
+    searchRow:SetBackdropColor(0.04, 0.03, 0.05, 0)
+    searchRow:SetBackdropBorderColor(0, 0, 0, 0)
     frame:AddChild(searchRow)
 
     local editBox = AceGUI:Create("EditBox")
     editBox:SetLabel(nil)
-    editBox:SetRelativeWidth(0.72)
+    editBox:SetRelativeWidth(0.78)
     editBox:DisableButton(true)
     editBox:SetCallback("OnEnterPressed", function(_, _, text) private:Search(text) end)
     if editBox.editbox then
@@ -182,36 +227,55 @@ function SMPPlayerSearch:CreateFrame()
     searchRow:AddChild(editBox)
 
     local searchBtn = AceGUI:Create("Button")
-    searchBtn:SetText("Поиск")
-    searchBtn:SetRelativeWidth(0.26)
+    searchBtn:SetText("Найти")
+    searchBtn:SetRelativeWidth(0.20)
     searchBtn:SetCallback("OnClick", function() private:Search(editBox:GetText()) end)
     searchRow:AddChild(searchBtn)
 
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("List")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    frame:AddChild(scroll)
+    local mainGroup = AceGUI:Create("SimpleGroup")
+    mainGroup:SetFullWidth(true)
+    mainGroup:SetFullHeight(true)
+    mainGroup:SetLayout("Flow")
+    mainGroup:SetBackdropColor(0, 0, 0, 0)
+    mainGroup:SetBackdropBorderColor(0, 0, 0, 0)
+    frame:AddChild(mainGroup)
+
+    local leftPanel = AceGUI:Create("SimpleGroup")
+    leftPanel:SetRelativeWidth(0.35)
+    leftPanel:SetFullHeight(true)
+    leftPanel:SetLayout("Fill")
+    leftPanel:SetBackdropColor(0.04, 0.03, 0.05, 0.5)
+    leftPanel:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 0.3)
+    mainGroup:AddChild(leftPanel)
+
+    local leftScroll = AceGUI:Create("ScrollFrame")
+    leftScroll:SetLayout("List")
+    leftScroll:SetFullWidth(true)
+    leftScroll:SetFullHeight(true)
+    leftPanel:AddChild(leftScroll)
+
+    local rightPanel = AceGUI:Create("SimpleGroup")
+    rightPanel:SetRelativeWidth(0.64)
+    rightPanel:SetFullHeight(true)
+    rightPanel:SetLayout("Fill")
+    rightPanel:SetBackdropColor(0.04, 0.03, 0.05, 0.3)
+    rightPanel:SetBackdropBorderColor(0, 0, 0, 0)
+    mainGroup:AddChild(rightPanel)
+
+    local rightScroll = AceGUI:Create("ScrollFrame")
+    rightScroll:SetLayout("List")
+    rightScroll:SetFullWidth(true)
+    rightScroll:SetFullHeight(true)
+    rightPanel:AddChild(rightScroll)
 
     private.aceFrame = frame
     private.editBox = editBox
-    private.scroll = scroll
+    private.leftScroll = leftScroll
+    private.rightScroll = rightScroll
 
     frame:SetCallback("OnClose", function()
-        if private.copyFrame then
-            private.copyFrame:Hide()
-        end
+        if private.copyFrame then private.copyFrame:Hide() end
     end)
-
-    local wowFrame = frame.frame
-    if wowFrame then
-        wowFrame:EnableKeyboard(true)
-        wowFrame:SetScript("OnKeyDown", function(self, key)
-            if key == "ESCAPE" then
-                SMPPlayerSearch:Hide()
-            end
-        end)
-    end
 
     frame:Hide()
 end
@@ -236,59 +300,111 @@ function SMPPlayerSearch:Toggle()
     else self:Show() end
 end
 
-function private:ClearScroll()
-    if private.scroll then private.scroll:ReleaseChildren() end
+function private:ClearLeft()
+    if private.leftScroll then private.leftScroll:ReleaseChildren() end
 end
 
-function private:AddSeparator(text)
-    if not private.scroll then return end
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-    local h = AceGUI:Create("Heading")
-    h:SetText(text)
-    h:SetFullWidth(true)
-    private.scroll:AddChild(h)
+function private:ClearRight()
+    if private.rightScroll then private.rightScroll:ReleaseChildren() end
 end
 
-function private:AddLabel(text, fontObj)
-    if not private.scroll then return end
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-    local l = AceGUI:Create("Label")
-    l:SetText(text)
-    l:SetFullWidth(true)
-    if fontObj then l:SetFontObject(fontObj) end
-    private.scroll:AddChild(l)
-end
-
-function private:AddClickableRow(text, isSelected, onClick)
-    if not private.scroll then return end
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-    local row = AceGUI:Create("InteractiveLabel")
-    local prefix = isSelected and "|cff1784d1>|r " or "   "
-    row:SetText(prefix .. text)
-    row:SetFullWidth(true)
-    row:SetFontObject(isSelected and GameFontHighlight or GameFontNormal)
-    row:SetCallback("OnClick", onClick)
-    private.scroll:AddChild(row)
-end
-
-function private:AddDungeonRow(entry)
-    if not private.scroll then return end
+function private:RenderPlayerList(selectedName)
+    self:ClearLeft()
+    if not private.leftScroll then return end
     local AceGUI = LibStub("AceGUI-3.0", true)
     if not AceGUI then return end
 
-    local durStr = formatDuration(entry.duration)
-    local tmrStr = formatDuration(entry.timer)
-    local statusIcon = entry.timed and "|cff00ff00+|r" or "|cffff2020-|r"
-    local lvlText = keyColor(entry.level) .. "+" .. entry.level .. "|r"
+    if #private.searchResults == 0 then
+        addDetailLabel(private.leftScroll, MUTED .. "Нет результатов|r")
+        return
+    end
 
-    local row = AceGUI:Create("Label")
-    row:SetText("    " .. entry.name .. "  " .. lvlText .. "  |cff888888" .. durStr .. " / " .. tmrStr .. "|r  " .. statusIcon)
-    row:SetFullWidth(true)
-    row:SetFontObject(GameFontHighlightSmall)
-    private.scroll:AddChild(row)
+    addDetailLabel(private.leftScroll, PURPLE_ACCENT .. "Результаты (" .. #private.searchResults .. ")|r", GameFontNormalSmall)
+
+    for _, player in ipairs(private.searchResults) do
+        local cc = classColor(player.classID)
+        local isSelected = player.name == selectedName
+        local indicator = isSelected and (BRAND .. ">|r") or "  "
+        local nameText = "|c" .. cc .. player.name .. "|r"
+        local rankStr = formatRank(player.rank)
+        local scoreStr = player.score > 0 and (MUTED .. math.floor(player.score) .. "|r") or ""
+
+        local row = AceGUI:Create("InteractiveLabel")
+        row:SetText(indicator .. " " .. nameText .. "  " .. rankStr .. "  " .. scoreStr)
+        row:SetFullWidth(true)
+        row:SetFontObject(isSelected and GameFontHighlight or GameFontNormal)
+        row:SetCallback("OnClick", function()
+            private:SelectPlayer(player.name)
+        end)
+        private.leftScroll:AddChild(row)
+    end
+end
+
+function private:RenderPlayerDetails(selectedName)
+    self:ClearRight()
+    if not private.rightScroll then return end
+    local AceGUI = LibStub("AceGUI-3.0", true)
+    if not AceGUI then return end
+
+    if not selectedName then
+        addDetailLabel(private.rightScroll, MUTED .. "Выберите игрока из списка|r")
+        return
+    end
+
+    local found = false
+    local profileURL = SMPLib:GetProfileURL(selectedName)
+    for _, p in ipairs(private.searchResults) do
+        if p.name == selectedName then
+            found = true
+            local cc = classColor(p.classID)
+            local rankStr = formatRank(p.rank)
+            local scoreStr = p.score > 0 and (BRAND .. math.floor(p.score) .. "|r") or ""
+
+            local header = AceGUI:Create("InteractiveLabel")
+            header:SetText("|c" .. cc .. p.name .. "|r  " .. rankStr .. "  " .. scoreStr .. "  " .. MUTED .. "|  |r" .. PURPLE_TEXT .. "Профиль|r")
+            header:SetFullWidth(true)
+            header:SetFontObject(GameFontHighlight)
+            header:SetCallback("OnClick", function()
+                private:ShowCopyDialog(profileURL)
+            end)
+            header:SetCallback("OnEnter", function(self)
+                self.label:SetTextColor(0.3, 0.65, 1)
+                GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
+                GameTooltip:SetText(profileURL, 0.46, 0.33, 0.55)
+                GameTooltip:AddLine("Кликните, чтобы скопировать", 0.5, 0.5, 0.5)
+                GameTooltip:Show()
+            end)
+            header:SetCallback("OnLeave", function(self)
+                self.label:SetTextColor(1, 1, 1)
+                GameTooltip:Hide()
+            end)
+            private.rightScroll:AddChild(header)
+            break
+        end
+    end
+    if not found then return end
+
+    local dungeonData, bestLevel, bestDungeon, timed, total = buildPlayerDetail(selectedName)
+
+    if #dungeonData == 0 then
+        addSectionTitle(private.rightScroll, "Данные игрока")
+        addDetailLabel(private.rightScroll, MUTED .. "Данные по данжам загружаются...|r")
+        return
+    end
+
+    addSectionTitle(private.rightScroll, "Данные игрока")
+
+    if bestLevel > 0 then
+        local bestText = GREEN .. "Лучший:|r " .. keyColor(bestLevel) .. "+" .. bestLevel .. "|r " .. bestDungeon
+        local runsText = GREEN .. "Забеги:|r " .. timed .. "/" .. total
+        addDetailLabel(private.rightScroll, bestText .. "        " .. runsText)
+    end
+
+    addSectionTitle(private.rightScroll, "Данжи")
+
+    for _, entry in ipairs(dungeonData) do
+        addDungeonRow(private.rightScroll, entry)
+    end
 end
 
 local CHECK_INTERVAL = 1
@@ -303,7 +419,8 @@ function private:SelectPlayer(playerName)
         private.lastRequestTime = GetTime()
     end
 
-    self:RenderResults(playerName)
+    self:RenderPlayerList(playerName)
+    self:RenderPlayerDetails(playerName)
     self:PollPlayerData(playerName, 1)
 end
 
@@ -316,7 +433,7 @@ function private:PollPlayerData(playerName, attempt)
 
         local dungeonData = buildPlayerDetail(playerName)
         if #dungeonData > 0 then
-            self:RenderResults(playerName)
+            self:RenderPlayerDetails(playerName)
             return
         end
 
@@ -333,78 +450,8 @@ function private:PollPlayerData(playerName, attempt)
 end
 
 function private:RenderResults(selectedName)
-    self:ClearScroll()
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-
-    if #private.searchResults == 0 then
-        self:AddLabel("|cffff2020Игрок не найден в ладдере|r")
-        return
-    end
-
-    if #private.searchResults > 1 then
-        self:AddSeparator("Результаты (" .. #private.searchResults .. ")")
-        for _, player in ipairs(private.searchResults) do
-            local cc = classColor(player.classID)
-            local rankStr = formatRank(player.rank)
-            local scoreStr = player.score > 0 and ("  |cff888888" .. math.floor(player.score) .. "|r") or ""
-            local text = "|c" .. cc .. player.name .. "|r  " .. rankStr .. scoreStr
-            self:AddClickableRow(text, player.name == selectedName, function()
-                private:SelectPlayer(player.name)
-            end)
-        end
-    end
-
-    if not selectedName then return end
-
-    self:AddSeparator("Данные игрока")
-
-    local found = false
-    local profileURL = SMPLib:GetProfileURL(selectedName)
-    for _, p in ipairs(private.searchResults) do
-        if p.name == selectedName then
-            found = true
-            local cc = classColor(p.classID)
-            local statText = "   |c" .. cc .. p.name .. "|r  " .. formatRank(p.rank) .. (p.score > 0 and ("  |cff1784d1" .. math.floor(p.score) .. "|r") or "")
-            local row = AceGUI:Create("InteractiveLabel")
-            row:SetText(statText .. "  |cff555555|||r  |cff1784d1Профиль|r")
-            row:SetFullWidth(true)
-            row:SetFontObject(GameFontHighlight)
-            row:SetCallback("OnClick", function()
-                private:ShowCopyDialog(profileURL)
-            end)
-            row:SetCallback("OnEnter", function(self)
-                self.label:SetTextColor(0.3, 0.65, 1)
-                GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
-                GameTooltip:SetText(profileURL, 0.09, 0.52, 0.82)
-                GameTooltip:AddLine("Кликните, чтобы скопировать", 0.6, 0.6, 0.6)
-                GameTooltip:Show()
-            end)
-            row:SetCallback("OnLeave", function(self)
-                self.label:SetTextColor(1, 1, 1)
-                GameTooltip:Hide()
-            end)
-            private.scroll:AddChild(row)
-            break
-        end
-    end
-    if not found then return end
-
-    local dungeonData, bestLevel, bestDungeon, timed, total = buildPlayerDetail(selectedName)
-
-    if #dungeonData == 0 then
-        self:AddLabel("   |cff888888Данные по данжам загружаются...|r")
-        return
-    end
-
-    if bestLevel > 0 then
-        self:AddLabel("   |cff00ff00Лучший:|r " .. keyColor(bestLevel) .. "+" .. bestLevel .. "|r  " .. bestDungeon .. "        |cff00ff00Забеги:|r " .. timed .. "/" .. total)
-    end
-
-    self:AddSeparator("Данжи")
-    for _, entry in ipairs(dungeonData) do
-        self:AddDungeonRow(entry)
-    end
+    self:RenderPlayerList(selectedName)
+    self:RenderPlayerDetails(selectedName)
 end
 
 function private:Search(playerName)
@@ -415,8 +462,9 @@ function private:Search(playerName)
     private.selectedPlayer = nil
     private.searchResults = {}
 
-    self:ClearScroll()
-    self:AddLabel("|cff888888Поиск " .. playerName .. "...|r")
+    self:ClearLeft()
+    self:ClearRight()
+    addDetailLabel(private.leftScroll, MUTED .. "Поиск " .. playerName .. "...|r")
 
     if C_MythicPlus.RequestPlayerStat then
         C_MythicPlus.RequestPlayerStat(playerName)
