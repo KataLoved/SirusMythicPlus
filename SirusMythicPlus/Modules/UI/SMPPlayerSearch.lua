@@ -163,19 +163,13 @@ function SMPPlayerSearch:CreateFrame()
     frame:SetTitle("|cff1784d1SMP|r — Поиск игрока")
     frame:SetWidth(480)
     frame:SetHeight(580)
-    frame:SetLayout("Fill")
+    frame:SetLayout("Flow")
     frame:EnableResize(false)
-
-    local root = AceGUI:Create("SimpleGroup")
-    root:SetFullWidth(true)
-    root:SetFullHeight(true)
-    root:SetLayout("List")
-    frame:AddChild(root)
 
     local searchRow = AceGUI:Create("SimpleGroup")
     searchRow:SetFullWidth(true)
     searchRow:SetLayout("Flow")
-    root:AddChild(searchRow)
+    frame:AddChild(searchRow)
 
     local editBox = AceGUI:Create("EditBox")
     editBox:SetLabel(nil)
@@ -197,12 +191,11 @@ function SMPPlayerSearch:CreateFrame()
     scroll:SetLayout("List")
     scroll:SetFullWidth(true)
     scroll:SetFullHeight(true)
-    root:AddChild(scroll)
+    frame:AddChild(scroll)
 
     private.aceFrame = frame
     private.editBox = editBox
     private.scroll = scroll
-    private.root = root
 
     frame:SetCallback("OnClose", function()
         if private.copyFrame then

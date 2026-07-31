@@ -81,10 +81,27 @@ end
 ---@param tt table
 ---@param left string
 ---@param right string
-local function addPair(tt, left, right)
+---@param lr number|nil left R
+---@param lg number|nil left G
+---@param lb number|nil left B
+---@param rr number|nil right R
+---@param rg number|nil right G
+---@param rb number|nil right B
+local function addPair(tt, left, right, lr, lg, lb, rr, rg, rb)
     if right and right ~= "" then
-        tt:AddDoubleLine(left, right, 1, 0.82, 0, 1, 1, 1)
+        tt:AddDoubleLine(left, right,
+            lr or 1, lg or 0.82, lb or 0,
+            rr or 1, rg or 1, rb or 1)
     end
+end
+
+local function hexToRGB(hex)
+    if not hex then return 1, 1, 1 end
+    hex = hex:gsub("|c", ""):gsub("|r", ""):gsub("^FF", ""):gsub("^ff", "")
+    local r = tonumber(hex:sub(1, 2), 16) or 255
+    local g = tonumber(hex:sub(3, 4), 16) or 255
+    local b = tonumber(hex:sub(5, 6), 16) or 255
+    return r / 255, g / 255, b / 255
 end
 
 ---@param level number
@@ -447,20 +464,44 @@ local function renderTooltip(tt, unit)
     local icon = ("|T%s:%d:%d:0:0|t "):format(MPLUS_ICON, ICON_SIZE, ICON_SIZE)
     tt:AddLine(icon .. "|cff00ff00Mythic+|r", 1, 1, 1)
 
+    if C_MythicPlus and C_MythicPlus.GetCurrentSeason and C_MythicPlus.GetSeasonTimeLeft then
+        local season, week = C_MythicPlus.GetCurrentSeason()
+        local timeLeft = C_MythicPlus.GetSeasonTimeLeft()
+        if season and week and timeLeft and timeLeft > 0 then
+            local days = math.floor(timeLeft / 86400)
+            local hours = math.floor(timeLeft % 86400 / 3600)
+            local mins = math.floor(timeLeft % 3600 / 60)
+            local secs = math.floor(timeLeft % 60)
+            local timeStr = days .. "д " .. hours .. "ч " .. mins .. "м " .. secs .. "с"
+            local leftStr = "|cffFFD100Сезон|r " .. season .. " |cff888888(Неделя " .. week .. "/12)|r"
+            tt:AddDoubleLine(leftStr, timeStr, 1, 1, 1, 1, 1, 1)
+        elseif season and week then
+            local leftStr = "|cffFFD100Сезон|r " .. season .. " |cff888888(Неделя " .. week .. "/12)|r"
+            tt:AddLine(leftStr, 1, 1, 1)
+        else
+            tt:AddLine("|cff888888Межсезонье|r", 1, 1, 1)
+        end
+    end
+
     local s = math.floor(score)
-    addPair(tt, "Рейтинг M+", scoreColor(s) .. tostring(s) .. "|r")
+    tt:AddDoubleLine("Рейтинг M+", tostring(s), 1, 0.82, 0, hexToRGB(scoreColor(s)))
 
     if rank then
-        addPair(tt, "Место в ладдере", formatRank(rank) or tostring(rank))
+        local rankColor = "|cff808080"
+        if rank <= 20 then rankColor = "|cffffd100"
+        elseif rank <= 100 then rankColor = "|cffff8000"
+        elseif rank <= 1000 then rankColor = "|cffa335ee"
+        end
+        tt:AddDoubleLine("Место в ладдере", tostring(rank), 1, 0.82, 0, hexToRGB(rankColor))
     end
 
     local keyText = fmtKey(bestLevel, bestDungeon)
     if keyText then
-        addPair(tt, "Макс. ключ", keyText)
+        tt:AddDoubleLine("Макс. ключ", keyText, 1, 0.82, 0, hexToRGB(keyColor(bestLevel)))
     elseif not isLocal and bestLevel == nil then
-        addPair(tt, "Макс. ключ", "|cffffd100Загрузка...|r")
+        tt:AddDoubleLine("Макс. ключ", "|cffffd100Загрузка...|r", 1, 0.82, 0, 1, 0.82, 0)
     else
-        addPair(tt, "Макс. ключ", "-")
+        tt:AddDoubleLine("Макс. ключ", "-", 1, 0.82, 0, 0.5, 0.5, 0.5)
     end
 
     local showDungeonList = IsShiftKeyDown() or cfg.showDungeonListAlways
@@ -492,14 +533,14 @@ local function renderTooltip(tt, unit)
         if isLocal then
             local timed, total = getLocalRunStats()
             if total > 0 then
-                addPair(tt, "Забеги (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
+                tt:AddDoubleLine("Забеги (в таймер/всего)", timed .. "/" .. total, 1, 0.82, 0, 1, 1, 1)
             end
         else
             local timed, total = getOtherRunStats(name)
             if total > 0 then
-                addPair(tt, "Лучшее за сезон (в таймер/всего)", tostring(timed) .. "/" .. tostring(total))
+                tt:AddDoubleLine("Лучшее за сезон (в таймер/всего)", timed .. "/" .. total, 1, 0.82, 0, 1, 1, 1)
             else
-                addPair(tt, "Лучшее за сезон", "|cffffd100Загрузка...|r")
+                tt:AddDoubleLine("Лучшее за сезон", "|cffffd100Загрузка...|r", 1, 0.82, 0, 1, 0.82, 0)
                 pcall(function()
                     C_MythicPlus.RequestPlayerStat(name)
                 end)
@@ -518,6 +559,26 @@ local function renderTooltip(tt, unit)
     end
 end
 
+local seasonTicker = nil
+
+local function stopSeasonTicker()
+    if seasonTicker then
+        seasonTicker:Cancel()
+        seasonTicker = nil
+    end
+end
+
+local function startSeasonTicker()
+    stopSeasonTicker()
+    seasonTicker = C_Timer:NewTicker(1, function()
+        if SMPTaboo:IsShown() then
+            SMPTaboo:RefreshTooltip()
+        else
+            stopSeasonTicker()
+        end
+    end)
+end
+
 local function onTooltipSetUnit(tt)
     if not private.isAvailable() then return end
 
@@ -526,10 +587,12 @@ local function onTooltipSetUnit(tt)
 
     private.currentTooltipGUID = UnitGUID(unit)
     renderTooltip(tt, unit)
+    startSeasonTicker()
 end
 
 local function onTooltipCleared()
     private.currentTooltipGUID = nil
+    stopSeasonTicker()
 end
 
 function private.isAvailable()
