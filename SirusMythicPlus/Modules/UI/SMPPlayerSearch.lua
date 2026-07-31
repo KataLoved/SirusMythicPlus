@@ -202,7 +202,9 @@ function SMPPlayerSearch:CreateFrame()
 
     local wowFrame = frame.frame
     if wowFrame then
-        wowFrame:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 1)
+        if wowFrame.SetBackdropBorderColor then
+            wowFrame:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 1)
+        end
         wowFrame:EnableKeyboard(true)
         wowFrame:SetScript("OnKeyDown", function(self, key)
             if key == "ESCAPE" then SMPPlayerSearch:Hide() end
@@ -213,15 +215,11 @@ function SMPPlayerSearch:CreateFrame()
     root:SetFullWidth(true)
     root:SetFullHeight(true)
     root:SetLayout("Flow")
-    root:SetBackdropColor(0, 0, 0, 0)
-    root:SetBackdropBorderColor(0, 0, 0, 0)
     frame:AddChild(root)
 
     local searchRow = AceGUI:Create("SimpleGroup")
     searchRow:SetFullWidth(true)
     searchRow:SetLayout("Flow")
-    searchRow:SetBackdropColor(0, 0, 0, 0)
-    searchRow:SetBackdropBorderColor(0, 0, 0, 0)
     root:AddChild(searchRow)
 
     local editBox = AceGUI:Create("EditBox")
@@ -244,16 +242,12 @@ function SMPPlayerSearch:CreateFrame()
     mainGroup:SetFullWidth(true)
     mainGroup:SetFullHeight(true)
     mainGroup:SetLayout("Flow")
-    mainGroup:SetBackdropColor(0, 0, 0, 0)
-    mainGroup:SetBackdropBorderColor(0, 0, 0, 0)
     root:AddChild(mainGroup)
 
     local leftPanel = AceGUI:Create("SimpleGroup")
     leftPanel:SetRelativeWidth(0.35)
     leftPanel:SetFullHeight(true)
     leftPanel:SetLayout("Fill")
-    leftPanel:SetBackdropColor(0.04, 0.03, 0.05, 0.5)
-    leftPanel:SetBackdropBorderColor(PURPLE_BORDER[1], PURPLE_BORDER[2], PURPLE_BORDER[3], 0.3)
     mainGroup:AddChild(leftPanel)
 
     local leftScroll = AceGUI:Create("ScrollFrame")
@@ -266,8 +260,6 @@ function SMPPlayerSearch:CreateFrame()
     rightPanel:SetRelativeWidth(0.64)
     rightPanel:SetFullHeight(true)
     rightPanel:SetLayout("Fill")
-    rightPanel:SetBackdropColor(0.04, 0.03, 0.05, 0.3)
-    rightPanel:SetBackdropBorderColor(0, 0, 0, 0)
     mainGroup:AddChild(rightPanel)
 
     local rightScroll = AceGUI:Create("ScrollFrame")
