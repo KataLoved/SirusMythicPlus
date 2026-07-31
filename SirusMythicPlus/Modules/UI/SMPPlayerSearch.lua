@@ -346,7 +346,6 @@ function SMPPlayerSearch:CreateFrame()
         if wowFrame.SetBackdropBorderColor then
             wowFrame:SetBackdropBorderColor(PURPLE[1], PURPLE[2], PURPLE[3], 1)
         end
-        wowFrame:SetScript("OnEscapePressed", function() SMPPlayerSearch:Hide() end)
     end
 
     local content = frame.content
