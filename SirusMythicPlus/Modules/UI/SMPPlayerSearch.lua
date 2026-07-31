@@ -346,6 +346,8 @@ function SMPPlayerSearch:CreateFrame()
         if wowFrame.SetBackdropBorderColor then
             wowFrame:SetBackdropBorderColor(PURPLE[1], PURPLE[2], PURPLE[3], 1)
         end
+        _G["SMPSearchFrame"] = wowFrame
+        tinsert(UISpecialFrames, "SMPSearchFrame")
     end
 
     local content = frame.content
