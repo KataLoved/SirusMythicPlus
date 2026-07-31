@@ -220,21 +220,21 @@ local function createPlayerRow(parent)
     nameText:SetJustifyH("LEFT")
     row.nameText = nameText
 
-    local scoreText = row:CreateFontString(nil, "OVERLAY")
-    scoreText:SetFont(getSearchFontPath(-2))
-    scoreText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-    scoreText:SetJustifyH("RIGHT")
-    scoreText:SetWidth(50)
-    row.scoreText = scoreText
-
     local rankText = row:CreateFontString(nil, "OVERLAY")
     rankText:SetFont(getSearchFontPath(-2))
-    rankText:SetPoint("RIGHT", scoreText, "LEFT", -4, 0)
+    rankText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
     rankText:SetJustifyH("RIGHT")
     rankText:SetWidth(52)
     row.rankText = rankText
 
-    nameText:SetPoint("RIGHT", rankText, "LEFT", -6, 0)
+    local scoreText = row:CreateFontString(nil, "OVERLAY")
+    scoreText:SetFont(getSearchFontPath(-2))
+    scoreText:SetPoint("RIGHT", rankText, "LEFT", -4, 0)
+    scoreText:SetJustifyH("RIGHT")
+    scoreText:SetWidth(50)
+    row.scoreText = scoreText
+
+    nameText:SetPoint("RIGHT", scoreText, "LEFT", -6, 0)
 
     row:SetScript("OnEnter", function(self)
         if not self.isSelected then
@@ -334,7 +334,7 @@ function SMPPlayerSearch:CreateFrame()
     if not AceGUI then return end
 
     local frame = AceGUI:Create("Frame")
-    frame:SetTitle(string.format("|cff%02x%02x%02xSMP|r — Поиск игроков Mythic+",
+    frame:SetTitle(string.format("|cff%02x%02x%02xSirusMythicPlus|r - Поиск игроков Mythic+",
         BRAND[1] * 255, BRAND[2] * 255, BRAND[3] * 255))
     frame:SetWidth(720)
     frame:SetHeight(430)
@@ -581,21 +581,21 @@ function private:RenderPlayerDetails(selectedName)
             hName:SetText(p.name)
             hName:SetTextColor(cc[1], cc[2], cc[3])
 
-            local hRank = header:CreateFontString(nil, "OVERLAY")
-            hRank:SetFont(getSearchFontPath(-1))
-            hRank:SetPoint("LEFT", hName, "RIGHT", 8, 0)
-            hRank:SetText(p.rank and ("#" .. p.rank) or "")
-            hRank:SetTextColor(rc[1], rc[2], rc[3])
-
             local hScore = header:CreateFontString(nil, "OVERLAY")
             hScore:SetFont(getSearchFontPath(-1))
-            hScore:SetPoint("LEFT", hRank, "RIGHT", 8, 0)
-            hScore:SetText(p.score > 0 and math.floor(p.score) or "")
+            hScore:SetPoint("LEFT", hName, "RIGHT", 8, 0)
+            hScore:SetText(p.score > 0 and ("Счет: " .. math.floor(p.score)) or "")
             hScore:SetTextColor(sc[1], sc[2], sc[3])
+
+            local hRank = header:CreateFontString(nil, "OVERLAY")
+            hRank:SetFont(getSearchFontPath(-1))
+            hRank:SetPoint("LEFT", hScore, "RIGHT", 8, 0)
+            hRank:SetText(p.rank and ("Место в ладдере: " .. p.rank) or "")
+            hRank:SetTextColor(rc[1], rc[2], rc[3])
 
             local hSep = header:CreateFontString(nil, "OVERLAY")
             hSep:SetFont(getSearchFontPath(-1))
-            hSep:SetPoint("LEFT", hScore, "RIGHT", 8, 0)
+            hSep:SetPoint("LEFT", hRank, "RIGHT", 8, 0)
             hSep:SetText("|")
             hSep:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
 
