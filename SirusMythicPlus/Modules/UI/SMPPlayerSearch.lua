@@ -18,11 +18,12 @@ local MAX_RETRIES = 5
 local BRAND = { 0.09, 0.52, 0.82 }
 local PURPLE = { 0.46, 0.33, 0.55 }
 local PURPLE_LIGHT = { 0.69, 0.55, 0.82 }
-local BG_DARK = { 0.055, 0.047, 0.067, 0.95 }
-local BG_ROW = { 0.08, 0.07, 0.09, 0.9 }
-local BG_ROW_HOVER = { 0.12, 0.10, 0.14, 0.95 }
-local BG_ROW_SELECTED = { 0.10, 0.13, 0.18, 0.95 }
-local BORDER_DARK = { 0.20, 0.17, 0.25, 0.6 }
+local BG_DARK = { 0.055, 0.047, 0.067 }
+local BG_PANEL = { 0.04, 0.035, 0.05 }
+local BG_ROW = { 0.075, 0.065, 0.085 }
+local BG_ROW_HOVER = { 0.11, 0.09, 0.13 }
+local BG_ROW_SELECTED = { 0.09, 0.12, 0.17 }
+local BORDER_PURPLE = { 0.46, 0.33, 0.55, 0.5 }
 local GREEN = { 0.33, 0.78, 0.47 }
 local RED = { 0.85, 0.33, 0.33 }
 local GRAY = { 0.47, 0.47, 0.47 }
@@ -45,8 +46,7 @@ local function keyColorRGB(level)
     level = tonumber(level or 0) or 0
     if level >= 15 then return GOLD
     elseif level >= 10 then return PURPLE_KEY
-    else return BLUE_KEY
-    end
+    else return BLUE_KEY end
 end
 
 local function rankColorRGB(rank)
@@ -54,17 +54,17 @@ local function rankColorRGB(rank)
     if rank <= 20 then return GOLD
     elseif rank <= 100 then return ORANGE
     elseif rank <= 1000 then return PURPLE_KEY
-    else return GRAY
-    end
+    else return GRAY end
 end
 
 local function scoreColorRGB(score)
     score = tonumber(score or 0) or 0
     local t = math.min(1, math.max(0, score / 2500))
     if t < 0.35 then
-        return { BLUE_KEY[1] + (PURPLE_KEY[1] - BLUE_KEY[1]) * (t / 0.35),
-                 BLUE_KEY[2] + (PURPLE_KEY[2] - BLUE_KEY[2]) * (t / 0.35),
-                 BLUE_KEY[3] + (PURPLE_KEY[3] - BLUE_KEY[3]) * (t / 0.35) }
+        local lt = t / 0.35
+        return { BLUE_KEY[1] + (PURPLE_KEY[1] - BLUE_KEY[1]) * lt,
+                 BLUE_KEY[2] + (PURPLE_KEY[2] - BLUE_KEY[2]) * lt,
+                 BLUE_KEY[3] + (PURPLE_KEY[3] - BLUE_KEY[3]) * lt }
     elseif t < 0.65 then
         local lt = (t - 0.35) / 0.30
         return { PURPLE_KEY[1] + (ORANGE[1] - PURPLE_KEY[1]) * lt,
@@ -137,11 +137,7 @@ function private:ShowCopyDialog(url)
         f:SetFrameStrata("TOOLTIP")
         f:SetClampedToScreen(true)
         f:EnableKeyboard(true)
-        f:SetBackdrop({
-            bgFile = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\Buttons\\WHITE8X8",
-            edgeSize = 1,
-        })
+        f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
         f:SetBackdropColor(BG_DARK[1], BG_DARK[2], BG_DARK[3], 0.97)
         f:SetBackdropBorderColor(PURPLE[1], PURPLE[2], PURPLE[3], 1)
 
@@ -160,7 +156,6 @@ function private:ShowCopyDialog(url)
         eb:SetScript("OnEscapePressed", function() f:Hide() end)
         eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
         eb:SetScript("OnMouseUp", function(self) self:HighlightText() end)
-
         local bg = eb:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints(eb)
         bg:SetTexture("Interface\\Buttons\\WHITE8X8")
@@ -174,8 +169,8 @@ function private:ShowCopyDialog(url)
         private.copyEditBox = eb
     end
 
-    if private.aceFrame and private.aceFrame.frame then
-        private.copyFrame:SetPoint("TOP", private.aceFrame.frame, "BOTTOM", 0, -4)
+    if private.mainFrame then
+        private.copyFrame:SetPoint("TOP", private.mainFrame, "BOTTOM", 0, -4)
     end
 
     private.copyEditBox:SetText(url)
@@ -184,8 +179,20 @@ function private:ShowCopyDialog(url)
     private.copyEditBox:HighlightText()
 end
 
-local ROW_HEIGHT = 30
-local DUNGEON_ROW_HEIGHT = 24
+local ROW_HEIGHT = 28
+local DUNGEON_ROW_HEIGHT = 22
+local SCROLL_INDENT = 4
+
+local function createStyledBackdrop(frame, r, g, b, a, borderR, borderG, borderB, borderA)
+    frame:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    frame:SetBackdropColor(r, g, b, a or 1)
+    frame:SetBackdropBorderColor(borderR or 0, borderG or 0, borderB or 0, borderA or 0)
+end
 
 local function createPlayerRow(parent)
     local row = CreateFrame("Button", nil, parent)
@@ -194,19 +201,19 @@ local function createPlayerRow(parent)
     local bg = row:CreateTexture(nil, "BACKGROUND")
     bg:SetTexture("Interface\\Buttons\\WHITE8X8")
     bg:SetAllPoints(row)
-    bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], BG_ROW[4])
+    bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.9)
     row.bg = bg
 
     local indicator = row:CreateFontString(nil, "OVERLAY")
-    indicator:SetFont("Fonts\\ARIALN.TTF", 11, "OUTLINE")
+    indicator:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
     indicator:SetPoint("LEFT", row, "LEFT", 6, 0)
-    indicator:SetWidth(12)
+    indicator:SetWidth(14)
     indicator:SetJustifyH("CENTER")
     row.indicator = indicator
 
     local nameText = row:CreateFontString(nil, "OVERLAY")
     nameText:SetFont("Fonts\\ARIALN.TTF", 11, "")
-    nameText:SetPoint("LEFT", indicator, "RIGHT", 4, 0)
+    nameText:SetPoint("LEFT", indicator, "RIGHT", 2, 0)
     nameText:SetJustifyH("LEFT")
     row.nameText = nameText
 
@@ -214,11 +221,12 @@ local function createPlayerRow(parent)
     scoreText:SetFont("Fonts\\ARIALN.TTF", 10, "")
     scoreText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
     scoreText:SetJustifyH("RIGHT")
+    scoreText:SetWidth(44)
     row.scoreText = scoreText
 
     local rankText = row:CreateFontString(nil, "OVERLAY")
     rankText:SetFont("Fonts\\ARIALN.TTF", 10, "")
-    rankText:SetPoint("RIGHT", scoreText, "LEFT", -10, 0)
+    rankText:SetPoint("RIGHT", scoreText, "LEFT", -4, 0)
     rankText:SetJustifyH("RIGHT")
     rankText:SetWidth(48)
     row.rankText = rankText
@@ -227,12 +235,12 @@ local function createPlayerRow(parent)
 
     row:SetScript("OnEnter", function(self)
         if not self.isSelected then
-            self.bg:SetVertexColor(BG_ROW_HOVER[1], BG_ROW_HOVER[2], BG_ROW_HOVER[3], BG_ROW_HOVER[4])
+            self.bg:SetVertexColor(BG_ROW_HOVER[1], BG_ROW_HOVER[2], BG_ROW_HOVER[3], 0.95)
         end
     end)
     row:SetScript("OnLeave", function(self)
         if not self.isSelected then
-            self.bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], BG_ROW[4])
+            self.bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.9)
         end
     end)
 
@@ -246,7 +254,7 @@ local function createDungeonRow(parent)
     local bg = row:CreateTexture(nil, "BACKGROUND")
     bg:SetTexture("Interface\\Buttons\\WHITE8X8")
     bg:SetAllPoints(row)
-    bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.4)
+    bg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.35)
     row.bg = bg
 
     local statusText = row:CreateFontString(nil, "OVERLAY")
@@ -258,7 +266,7 @@ local function createDungeonRow(parent)
 
     local timerText = row:CreateFontString(nil, "OVERLAY")
     timerText:SetFont("Fonts\\ARIALN.TTF", 10, "")
-    timerText:SetPoint("RIGHT", statusText, "LEFT", -6, 0)
+    timerText:SetPoint("RIGHT", statusText, "LEFT", -4, 0)
     timerText:SetJustifyH("RIGHT")
     timerText:SetWidth(90)
     row.timerText = timerText
@@ -279,6 +287,43 @@ local function createDungeonRow(parent)
     row.nameText = nameText
 
     return row
+end
+
+local function clearScrollChild(scroll)
+    local child = scroll:GetScrollChild()
+    if child then
+        child:Hide()
+        child:SetParent(nil)
+    end
+    scroll:SetScrollChild(nil)
+    scroll.rows = {}
+end
+
+local function initScrollContent(scroll)
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetWidth(scroll:GetWidth() - 20)
+    child:SetHeight(1)
+    scroll:SetScrollChild(child)
+    scroll.rows = {}
+    scroll.contentHeight = 0
+    return child
+end
+
+local function addRowToScroll(scroll, row, height)
+    local child = scroll:GetScrollChild()
+    if not child then child = initScrollContent(scroll) end
+
+    local y = scroll.contentHeight or 0
+    row:SetParent(child)
+    row:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+    row:SetPoint("TOPRIGHT", child, "TOPRIGHT", 0, -y)
+    row:Show()
+
+    scroll.contentHeight = y + height
+    child:SetHeight(scroll.contentHeight)
+
+    scroll.rows = scroll.rows or {}
+    scroll.rows[#scroll.rows + 1] = row
 end
 
 function SMPPlayerSearch:CreateFrame()
@@ -304,69 +349,64 @@ function SMPPlayerSearch:CreateFrame()
         end)
     end
 
-    local root = AceGUI:Create("SimpleGroup")
-    root:SetFullWidth(true)
-    root:SetFullHeight(true)
-    root:SetLayout("Flow")
-    frame:AddChild(root)
+    local content = frame.content
+    if not content then return end
 
-    local searchRow = AceGUI:Create("SimpleGroup")
-    searchRow:SetFullWidth(true)
-    searchRow:SetLayout("Flow")
-    root:AddChild(searchRow)
+    local searchFrame = CreateFrame("Frame", nil, content)
+    searchFrame:SetHeight(30)
+    searchFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -4)
+    searchFrame:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -4)
 
-    local editBox = AceGUI:Create("EditBox")
-    editBox:SetLabel(nil)
-    editBox:SetRelativeWidth(0.78)
-    editBox:DisableButton(true)
-    editBox:SetCallback("OnEnterPressed", function(_, _, text) private:Search(text) end)
-    if editBox.editbox then
-        editBox.editbox:SetScript("OnEnterPressed", function(self) private:Search(self:GetText()) end)
-    end
-    searchRow:AddChild(editBox)
+    local editBox = CreateFrame("EditBox", nil, searchFrame, "InputBoxTemplate")
+    editBox:SetHeight(20)
+    editBox:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 4, -4)
+    editBox:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -80, -4)
+    editBox:SetAutoFocus(false)
+    editBox:SetScript("OnEnterPressed", function(self) private:Search(self:GetText()) end)
 
-    local searchBtn = AceGUI:Create("Button")
+    local searchBtn = CreateFrame("Button", nil, searchFrame, "UIPanelButtonTemplate")
+    searchBtn:SetSize(70, 22)
+    searchBtn:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -2, -3)
     searchBtn:SetText("Найти")
-    searchBtn:SetRelativeWidth(0.20)
-    searchBtn:SetCallback("OnClick", function() private:Search(editBox:GetText()) end)
-    searchRow:AddChild(searchBtn)
+    searchBtn:SetScript("OnClick", function() private:Search(editBox:GetText()) end)
 
-    local mainGroup = AceGUI:Create("SimpleGroup")
-    mainGroup:SetFullWidth(true)
-    mainGroup:SetFullHeight(true)
-    mainGroup:SetLayout("Flow")
-    root:AddChild(mainGroup)
+    local mainFrame = CreateFrame("Frame", nil, content)
+    mainFrame:SetPoint("TOPLEFT", searchFrame, "BOTTOMLEFT", 0, -2)
+    mainFrame:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -4, 4)
 
-    local leftPanel = AceGUI:Create("SimpleGroup")
-    leftPanel:SetRelativeWidth(0.35)
-    leftPanel:SetFullHeight(true)
-    leftPanel:SetLayout("Fill")
-    mainGroup:AddChild(leftPanel)
+    local leftPanel = CreateFrame("Frame", nil, mainFrame)
+    leftPanel:SetPoint("TOPLEFT", mainFrame, "TOPLEFT", 0, 0)
+    leftPanel:SetPoint("BOTTOMLEFT", mainFrame, "BOTTOMLEFT", 0, 0)
+    leftPanel:SetWidth(240)
+    createStyledBackdrop(leftPanel, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 0.8,
+        BORDER_PURPLE[1], BORDER_PURPLE[2], BORDER_PURPLE[3], BORDER_PURPLE[4])
 
-    local leftScroll = AceGUI:Create("ScrollFrame")
-    leftScroll:SetLayout("List")
-    leftScroll:SetFullWidth(true)
-    leftScroll:SetFullHeight(true)
-    leftPanel:AddChild(leftScroll)
+    local leftLabel = leftPanel:CreateFontString(nil, "OVERLAY")
+    leftLabel:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    leftLabel:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 8, -6)
+    leftLabel:SetText("Результаты")
+    leftLabel:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
 
-    local rightPanel = AceGUI:Create("SimpleGroup")
-    rightPanel:SetRelativeWidth(0.64)
-    rightPanel:SetFullHeight(true)
-    rightPanel:SetLayout("Fill")
-    mainGroup:AddChild(rightPanel)
+    local leftScroll = CreateFrame("ScrollFrame", "SMPSearchLeftScroll", leftPanel, "UIPanelScrollFrameTemplate")
+    leftScroll:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 0, -22)
+    leftScroll:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -20, 4)
 
-    local rightScroll = AceGUI:Create("ScrollFrame")
-    rightScroll:SetLayout("List")
-    rightScroll:SetFullWidth(true)
-    rightScroll:SetFullHeight(true)
-    rightPanel:AddChild(rightScroll)
+    local rightPanel = CreateFrame("Frame", nil, mainFrame)
+    rightPanel:SetPoint("TOPLEFT", leftPanel, "TOPRIGHT", 4, 0)
+    rightPanel:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", 0, 0)
+    createStyledBackdrop(rightPanel, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 0.5,
+        0, 0, 0, 0)
+
+    local rightScroll = CreateFrame("ScrollFrame", "SMPSearchRightScroll", rightPanel, "UIPanelScrollFrameTemplate")
+    rightScroll:SetPoint("TOPLEFT", rightPanel, "TOPLEFT", 4, -4)
+    rightScroll:SetPoint("BOTTOMRIGHT", rightPanel, "BOTTOMRIGHT", -20, 4)
 
     private.aceFrame = frame
+    private.mainFrame = wowFrame
     private.editBox = editBox
     private.leftScroll = leftScroll
     private.rightScroll = rightScroll
-    private.playerRows = {}
-    private.dungeonRows = {}
+    private.leftLabel = leftLabel
 
     frame:SetCallback("OnClose", function()
         if private.copyFrame then private.copyFrame:Hide() end
@@ -395,157 +435,71 @@ function SMPPlayerSearch:Toggle()
     else self:Show() end
 end
 
-function private:ClearContainer(container)
-    if container then container:ReleaseChildren() end
-end
-
-function private:AddAceLabel(container, text, fontObj)
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-    local l = AceGUI:Create("Label")
-    l:SetText(text)
-    l:SetFullWidth(true)
-    if fontObj then l:SetFontObject(fontObj) end
-    container:AddChild(l)
-end
-
-function private:AddAceHeading(container, text)
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-    local h = AceGUI:Create("Heading")
-    h:SetText(text)
-    h:SetFullWidth(true)
-    container:AddChild(h)
-end
-
-function private:AddCustomFrame(container, frame)
-    local wrapper = AceGUI:Create("SimpleGroup")
-    wrapper:SetFullWidth(true)
-    wrapper:SetLayout("Fill")
-    wrapper:SetHeight(frame:GetHeight())
-    wrapper:AddChild({ frame = frame, type = "custom" })
-    container:AddChild(wrapper)
-    return wrapper
-end
-
-function private:CreatePlayerRowInContainer(container, player, isSelected, onClick)
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-
-    local row = createPlayerRow(container.frame or container.content)
-
-    local cc = classColor(player.classID)
-    local rc = rankColorRGB(player.rank)
-    local sc = scoreColorRGB(player.score)
-
-    row.indicator:SetText(isSelected and ">" or "")
-    row.indicator:SetTextColor(BRAND[1], BRAND[2], BRAND[3])
-
-    row.nameText:SetText(player.name)
-    row.nameText:SetTextColor(cc[1], cc[2], cc[3])
-
-    if player.rank then
-        row.rankText:SetText("#" .. player.rank)
-        row.rankText:SetTextColor(rc[1], rc[2], rc[3])
-    else
-        row.rankText:SetText("")
-    end
-
-    if player.score > 0 then
-        row.scoreText:SetText(math.floor(player.score))
-        row.scoreText:SetTextColor(sc[1], sc[2], sc[3])
-    else
-        row.scoreText:SetText("")
-    end
-
-    row.isSelected = isSelected
-    if isSelected then
-        row.bg:SetVertexColor(BG_ROW_SELECTED[1], BG_ROW_SELECTED[2], BG_ROW_SELECTED[3], BG_ROW_SELECTED[4])
-    end
-
-    row:SetScript("OnClick", onClick)
-
-    local wrapper = AceGUI:Create("SimpleGroup")
-    wrapper:SetFullWidth(true)
-    wrapper:SetLayout("Fill")
-    wrapper:SetHeight(ROW_HEIGHT)
-    container:AddChild(wrapper)
-
-    wrapper.frame = row
-    row:SetParent(wrapper.content or wrapper.frame)
-    row:ClearAllPoints()
-    row:SetAllPoints(wrapper.content or wrapper.frame)
-    row:Show()
-
-    return row
-end
-
-function private:CreateDungeonRowInContainer(container, entry)
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
-
-    local row = createDungeonRow(container.frame or container.content)
-
-    row.nameText:SetText(entry.name)
-    row.nameText:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
-
-    local kc = keyColorRGB(entry.level)
-    row.levelText:SetText("+" .. entry.level)
-    row.levelText:SetTextColor(kc[1], kc[2], kc[3])
-
-    row.timerText:SetText(formatDuration(entry.duration) .. " / " .. formatDuration(entry.timer))
-    row.timerText:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
-
-    if entry.timed then
-        row.statusText:SetText("+")
-        row.statusText:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
-    else
-        row.statusText:SetText("-")
-        row.statusText:SetTextColor(RED[1], RED[2], RED[3])
-    end
-
-    local wrapper = AceGUI:Create("SimpleGroup")
-    wrapper:SetFullWidth(true)
-    wrapper:SetLayout("Fill")
-    wrapper:SetHeight(DUNGEON_ROW_HEIGHT)
-    container:AddChild(wrapper)
-
-    wrapper.frame = row
-    row:SetParent(wrapper.content or wrapper.frame)
-    row:ClearAllPoints()
-    row:SetAllPoints(wrapper.content or wrapper.frame)
-    row:Show()
-
-    return row
-end
-
 function private:RenderPlayerList(selectedName)
-    self:ClearContainer(private.leftScroll)
-    if not private.leftScroll then return end
+    clearScrollChild(private.leftScroll)
 
     if #private.searchResults == 0 then
-        self:AddAceLabel(private.leftScroll, "|cff777777Нет результатов|r")
+        local child = initScrollContent(private.leftScroll)
+        local msg = child:CreateFontString(nil, "OVERLAY")
+        msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
+        msg:SetText("Нет результатов")
+        msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+        private.leftLabel:SetText("Результаты")
         return
     end
 
-    self:AddAceLabel(private.leftScroll, string.format("|cff%02x%02x%02xРезультаты (%d)|r",
-        PURPLE[1] * 255, PURPLE[2] * 255, PURPLE[3] * 255, #private.searchResults), GameFontNormalSmall)
+    private.leftLabel:SetText(string.format("Результаты (%d)", #private.searchResults))
 
     for _, player in ipairs(private.searchResults) do
-        self:CreatePlayerRowInContainer(private.leftScroll, player, player.name == selectedName, function()
-            private:SelectPlayer(player.name)
-        end)
+        local row = createPlayerRow(nil)
+        local cc = classColor(player.classID)
+        local rc = rankColorRGB(player.rank)
+        local sc = scoreColorRGB(player.score)
+        local isSelected = player.name == selectedName
+
+        row.indicator:SetText(isSelected and ">" or "")
+        row.indicator:SetTextColor(BRAND[1], BRAND[2], BRAND[3])
+
+        row.nameText:SetText(player.name)
+        row.nameText:SetTextColor(cc[1], cc[2], cc[3])
+
+        if player.rank then
+            row.rankText:SetText("#" .. player.rank)
+            row.rankText:SetTextColor(rc[1], rc[2], rc[3])
+        else
+            row.rankText:SetText("")
+        end
+
+        if player.score > 0 then
+            row.scoreText:SetText(math.floor(player.score))
+            row.scoreText:SetTextColor(sc[1], sc[2], sc[3])
+        else
+            row.scoreText:SetText("")
+        end
+
+        row.isSelected = isSelected
+        if isSelected then
+            row.bg:SetVertexColor(BG_ROW_SELECTED[1], BG_ROW_SELECTED[2], BG_ROW_SELECTED[3], 0.95)
+        end
+
+        local playerName = player.name
+        row:SetScript("OnClick", function() private:SelectPlayer(playerName) end)
+
+        addRowToScroll(private.leftScroll, row, ROW_HEIGHT)
     end
 end
 
 function private:RenderPlayerDetails(selectedName)
-    self:ClearContainer(private.rightScroll)
-    if not private.rightScroll then return end
-    local AceGUI = LibStub("AceGUI-3.0", true)
-    if not AceGUI then return end
+    clearScrollChild(private.rightScroll)
 
     if not selectedName then
-        self:AddAceLabel(private.rightScroll, "|cff777777Выберите игрока из списка|r")
+        local child = initScrollContent(private.rightScroll)
+        local msg = child:CreateFontString(nil, "OVERLAY")
+        msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
+        msg:SetText("Выберите игрока из списка")
+        msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
         return
     end
 
@@ -558,30 +512,60 @@ function private:RenderPlayerDetails(selectedName)
             local rc = rankColorRGB(p.rank)
             local sc = scoreColorRGB(p.score)
 
-            local header = AceGUI:Create("InteractiveLabel")
-            local hText = string.format("|cff%02x%02x%02x%s|r  |cff%02x%02x%02x#%s|r  |cff%02x%02x%02x%s|r  |cff555555|||r  |cff%02x%02x%02xПрофиль|r",
-                cc[1] * 255, cc[2] * 255, cc[3] * 255, p.name,
-                rc[1] * 255, rc[2] * 255, rc[3] * 255, tostring(p.rank or ""),
-                sc[1] * 255, sc[2] * 255, sc[3] * 255, math.floor(p.score),
-                PURPLE_LIGHT[1] * 255, PURPLE_LIGHT[2] * 255, PURPLE_LIGHT[3] * 255)
-            header:SetText(hText)
-            header:SetFullWidth(true)
-            header:SetFontObject(GameFontHighlight)
-            header:SetCallback("OnClick", function()
-                private:ShowCopyDialog(profileURL)
-            end)
-            header:SetCallback("OnEnter", function(self)
-                self.label:SetTextColor(BRAND[1], BRAND[2], BRAND[3])
-                GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
+            local header = CreateFrame("Button", nil, nil)
+            header:SetHeight(26)
+
+            local hBg = header:CreateTexture(nil, "BACKGROUND")
+            hBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+            hBg:SetAllPoints(header)
+            hBg:SetVertexColor(BG_ROW[1], BG_ROW[2], BG_ROW[3], 0.6)
+
+            local hName = header:CreateFontString(nil, "OVERLAY")
+            hName:SetFont("Fonts\\ARIALN.TTF", 11, "")
+            hName:SetPoint("LEFT", header, "LEFT", 8, 0)
+            hName:SetText(p.name)
+            hName:SetTextColor(cc[1], cc[2], cc[3])
+
+            local hRank = header:CreateFontString(nil, "OVERLAY")
+            hRank:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hRank:SetPoint("LEFT", hName, "RIGHT", 8, 0)
+            hRank:SetText(p.rank and ("#" .. p.rank) or "")
+            hRank:SetTextColor(rc[1], rc[2], rc[3])
+
+            local hScore = header:CreateFontString(nil, "OVERLAY")
+            hScore:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hScore:SetPoint("LEFT", hRank, "RIGHT", 8, 0)
+            hScore:SetText(p.score > 0 and math.floor(p.score) or "")
+            hScore:SetTextColor(sc[1], sc[2], sc[3])
+
+            local hSep = header:CreateFontString(nil, "OVERLAY")
+            hSep:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hSep:SetPoint("LEFT", hScore, "RIGHT", 8, 0)
+            hSep:SetText("|")
+            hSep:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+
+            local hLink = header:CreateFontString(nil, "OVERLAY")
+            hLink:SetFont("Fonts\\ARIALN.TTF", 10, "")
+            hLink:SetPoint("LEFT", hSep, "RIGHT", 8, 0)
+            hLink:SetText("Профиль")
+            hLink:SetTextColor(PURPLE_LIGHT[1], PURPLE_LIGHT[2], PURPLE_LIGHT[3])
+
+            header:SetScript("OnEnter", function()
+                hLink:SetTextColor(BRAND[1], BRAND[2], BRAND[3])
+                GameTooltip:SetOwner(header, "ANCHOR_CURSOR")
                 GameTooltip:SetText(profileURL, PURPLE[1], PURPLE[2], PURPLE[3])
                 GameTooltip:AddLine("Кликните, чтобы скопировать", 0.5, 0.5, 0.5)
                 GameTooltip:Show()
             end)
-            header:SetCallback("OnLeave", function(self)
-                self.label:SetTextColor(1, 1, 1)
+            header:SetScript("OnLeave", function()
+                hLink:SetTextColor(PURPLE_LIGHT[1], PURPLE_LIGHT[2], PURPLE_LIGHT[3])
                 GameTooltip:Hide()
             end)
-            private.rightScroll:AddChild(header)
+            header:SetScript("OnClick", function()
+                private:ShowCopyDialog(profileURL)
+            end)
+
+            addRowToScroll(private.rightScroll, header, 26)
             break
         end
     end
@@ -590,26 +574,109 @@ function private:RenderPlayerDetails(selectedName)
     local dungeonData, bestLevel, bestDungeon, timed, total = buildPlayerDetail(selectedName)
 
     if #dungeonData == 0 then
-        self:AddAceHeading(private.rightScroll, "Данные игрока")
-        self:AddAceLabel(private.rightScroll, "|cff777777Данные по данжам загружаются...|r")
+        local spacer = CreateFrame("Frame", nil, nil)
+        spacer:SetHeight(8)
+        addRowToScroll(private.rightScroll, spacer, 8)
+
+        local msg = CreateFrame("Frame", nil, nil)
+        msg:SetHeight(16)
+        local msgText = msg:CreateFontString(nil, "OVERLAY")
+        msgText:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        msgText:SetPoint("LEFT", msg, "LEFT", 8, 0)
+        msgText:SetText("Данные по данжам загружаются...")
+        msgText:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+        addRowToScroll(private.rightScroll, msg, 16)
         return
     end
 
-    self:AddAceHeading(private.rightScroll, "Данные игрока")
+    local sectionH = 10
+    local spacer = CreateFrame("Frame", nil, nil)
+    spacer:SetHeight(sectionH)
+    addRowToScroll(private.rightScroll, spacer, sectionH)
+
+    local sectionTitle = CreateFrame("Frame", nil, nil)
+    sectionTitle:SetHeight(18)
+    local stText = sectionTitle:CreateFontString(nil, "OVERLAY")
+    stText:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    stText:SetPoint("CENTER", sectionTitle, "CENTER", 0, 0)
+    stText:SetText("── Данные игрока ──")
+    stText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
+    addRowToScroll(private.rightScroll, sectionTitle, 18)
 
     if bestLevel > 0 then
+        local bestRow = CreateFrame("Frame", nil, nil)
+        bestRow:SetHeight(18)
+
         local kc = keyColorRGB(bestLevel)
-        local bestText = string.format("|cff%02x%02x%02xЛучший:|r |cff%02x%02x%02x+%d|r %s        |cff%02x%02x%02xЗабеги:|r %d/%d",
-            GREEN[1] * 255, GREEN[2] * 255, GREEN[3] * 255,
-            kc[1] * 255, kc[2] * 255, kc[3] * 255, bestLevel, bestDungeon,
-            GREEN[1] * 255, GREEN[2] * 255, GREEN[3] * 255, timed, total)
-        self:AddAceLabel(private.rightScroll, bestText)
+
+        local bLabel = bestRow:CreateFontString(nil, "OVERLAY")
+        bLabel:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bLabel:SetPoint("LEFT", bestRow, "LEFT", 8, 0)
+        bLabel:SetText("Лучший:")
+        bLabel:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
+
+        local bKey = bestRow:CreateFontString(nil, "OVERLAY")
+        bKey:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+        bKey:SetPoint("LEFT", bLabel, "RIGHT", 4, 0)
+        bKey:SetText("+" .. bestLevel)
+        bKey:SetTextColor(kc[1], kc[2], kc[3])
+
+        local bDungeon = bestRow:CreateFontString(nil, "OVERLAY")
+        bDungeon:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bDungeon:SetPoint("LEFT", bKey, "RIGHT", 4, 0)
+        bDungeon:SetText(bestDungeon)
+        bDungeon:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+
+        local bRuns = bestRow:CreateFontString(nil, "OVERLAY")
+        bRuns:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bRuns:SetPoint("RIGHT", bestRow, "RIGHT", -8, 0)
+        bRuns:SetText(string.format("Забеги: %d/%d", timed, total))
+        bRuns:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+
+        local bRunsLabel = bestRow:CreateFontString(nil, "OVERLAY")
+        bRunsLabel:SetFont("Fonts\\ARIALN.TTF", 10, "")
+        bRunsLabel:SetPoint("RIGHT", bRuns, "LEFT", -4, 0)
+        bRunsLabel:SetText("Забеги:")
+        bRunsLabel:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
+
+        addRowToScroll(private.rightScroll, bestRow, 18)
     end
 
-    self:AddAceHeading(private.rightScroll, "Данжи")
+    local spacer2 = CreateFrame("Frame", nil, nil)
+    spacer2:SetHeight(sectionH)
+    addRowToScroll(private.rightScroll, spacer2, sectionH)
+
+    local dungeonTitle = CreateFrame("Frame", nil, nil)
+    dungeonTitle:SetHeight(18)
+    local dtText = dungeonTitle:CreateFontString(nil, "OVERLAY")
+    dtText:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    dtText:SetPoint("CENTER", dungeonTitle, "CENTER", 0, 0)
+    dtText:SetText("──────── Данжи ────────")
+    dtText:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
+    addRowToScroll(private.rightScroll, dungeonTitle, 18)
 
     for _, entry in ipairs(dungeonData) do
-        self:CreateDungeonRowInContainer(private.rightScroll, entry)
+        local row = createDungeonRow(nil)
+        local kc = keyColorRGB(entry.level)
+
+        row.nameText:SetText(entry.name)
+        row.nameText:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
+
+        row.levelText:SetText("+" .. entry.level)
+        row.levelText:SetTextColor(kc[1], kc[2], kc[3])
+
+        row.timerText:SetText(formatDuration(entry.duration) .. " / " .. formatDuration(entry.timer))
+        row.timerText:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+
+        if entry.timed then
+            row.statusText:SetText("+")
+            row.statusText:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
+        else
+            row.statusText:SetText("-")
+            row.statusText:SetTextColor(RED[1], RED[2], RED[3])
+        end
+
+        addRowToScroll(private.rightScroll, row, DUNGEON_ROW_HEIGHT)
     end
 end
 
@@ -655,11 +722,6 @@ function private:PollPlayerData(playerName, attempt)
     end)
 end
 
-function private:RenderResults(selectedName)
-    self:RenderPlayerList(selectedName)
-    self:RenderPlayerDetails(selectedName)
-end
-
 function private:Search(playerName)
     if not playerName or playerName == "" then return end
     playerName = playerName:gsub("^%s+", ""):gsub("%s+$", "")
@@ -668,9 +730,15 @@ function private:Search(playerName)
     private.selectedPlayer = nil
     private.searchResults = {}
 
-    self:ClearContainer(private.leftScroll)
-    self:ClearContainer(private.rightScroll)
-    self:AddAceLabel(private.leftScroll, "|cff777777Поиск " .. playerName .. "...|r")
+    clearScrollChild(private.leftScroll)
+    clearScrollChild(private.rightScroll)
+
+    local child = initScrollContent(private.leftScroll)
+    local msg = child:CreateFontString(nil, "OVERLAY")
+    msg:SetFont("Fonts\\ARIALN.TTF", 10, "")
+    msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
+    msg:SetText("Поиск " .. playerName .. "...")
+    msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
 
     if C_MythicPlus.RequestPlayerStat then
         C_MythicPlus.RequestPlayerStat(playerName)
@@ -709,6 +777,11 @@ function private:PollForResult(playerName, attempt)
 
         private:PollForResult(playerName, attempt + 1)
     end)
+end
+
+function private:RenderResults(selectedName)
+    self:RenderPlayerList(selectedName)
+    self:RenderPlayerDetails(selectedName)
 end
 
 return SMPPlayerSearch
