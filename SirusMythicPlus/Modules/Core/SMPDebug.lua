@@ -1,3 +1,4 @@
+---@class SMPDebug
 local SMPDebug = SMPLoader:CreateModule("SMPDebug")
 local private = SMPDebug.private
 
@@ -17,6 +18,7 @@ local CATEGORY_COLORS = {
     STATE       = "FFFFD700",
     OVERLAY     = "FFFF69B4",
     POLL        = "FFFF8C00",
+    REQUEST     = "FF9370DB",
     ERROR       = "FFFF4444",
     SYSTEM      = "FFCCCCCC",
 }

@@ -8,14 +8,16 @@ local SMPConfig = SMPLoader:ImportModule("SMPConfig")
 ---@type SMPLib
 local SMPLib = SMPLoader:ImportModule("SMPLib")
 
-private.pendingSearch = nil
+---@type SMPRequest
+local SMPRequest = SMPLoader:ImportModule("SMPRequest")
+
+private.query = nil
 private.searchResults = {}
 private.selectedPlayer = nil
-
-local MYTHIC_PLUS_BRACKET = 9
-local MAX_RETRIES = 5
+private.searchState = nil
 
 local DEFAULT_FONT_SIZE = 13
+local MIN_LAYOUT_WIDTH = 10
 
 local function getSearchFontPath(sizeOffset, flags)
     local fontName = SMPConfig:GetProfileConfig("search.font")
@@ -27,67 +29,110 @@ end
 
 local BRAND = { 0.09, 0.52, 0.82 }
 local PURPLE = { 0.46, 0.33, 0.55 }
+local BORDER_PURPLE = { 0.46, 0.33, 0.55, 0.5 }
 local PURPLE_LIGHT = { 0.69, 0.55, 0.82 }
+local PURPLE_LIGHT_BTN = { 0.7, 0.55, 0.78 }
 local BG_DARK = { 0.055, 0.047, 0.067 }
 local BG_PANEL = { 0.04, 0.035, 0.05 }
 local BG_ROW = { 0.075, 0.065, 0.085 }
 local BG_ROW_HOVER = { 0.11, 0.09, 0.13 }
 local BG_ROW_SELECTED = { 0.09, 0.12, 0.17 }
-local BORDER_PURPLE = { 0.46, 0.33, 0.55, 0.5 }
 local GREEN = { 0.33, 0.78, 0.47 }
 local RED = { 0.85, 0.33, 0.33 }
 local GRAY = { 0.47, 0.47, 0.47 }
+local WHITE = { 1, 1, 1 }
 
 local function formatDuration(sec)
     if not sec or sec == 0 then return "-" end
     return math.floor(sec / 60) .. ":" .. string.format("%02d", sec % 60)
 end
 
-local function getSearchResults()
-    local results = {}
-    if not C_Ladder or not C_Ladder.GetNumSearchResults then return results end
-    local num = C_Ladder.GetNumSearchResults(MYTHIC_PLUS_BRACKET)
-    if not num or num == 0 then return results end
-    for i = 1, num do
-        local rank, name, _, classID, _, _, _, score = C_Ladder.GetSearchResultPlayerInfo(MYTHIC_PLUS_BRACKET, i)
-        if name then
-            results[#results + 1] = { index = i, rank = rank, name = name, classID = classID, score = score or 0 }
-        end
-    end
-    return results
+---@param classID number|nil
+---@return string|nil
+local function getClassFile(classID)
+    if not classID or not GetClassInfo then return nil end
+    local ok, _, classFile = pcall(GetClassInfo, classID)
+    if ok then return classFile end
+    return nil
 end
 
+---@param playerName string
+---@return table lines
+---@return number bestLevel
+---@return string bestDungeon
+---@return number timed
+---@return number total
+---@return string state
 local function buildPlayerDetail(playerName)
-    local lines = {}
-    local mapsTable = C_ChallengeMode.GetMapTable and C_ChallengeMode.GetMapTable()
-    local bestLevel, bestDungeon, timed, total = 0, "", 0, 0
+    local stats, state = SMPRequest:GetPlayerStats(playerName)
+    if not stats then
+        return {}, 0, "", 0, 0, state
+    end
 
-    if mapsTable then
-        for _, mapId in ipairs(mapsTable) do
-            local mapName = C_ChallengeMode.GetMapUIInfo(mapId)
-            local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapId)
-            if statInfo and statInfo.level and statInfo.level > 0 then
-                local level = statInfo.level
-                local duration = statInfo.durationSec or 0
-                if level > bestLevel then bestLevel = level; bestDungeon = mapName or "?" end
-                total = total + 1
-                local _, _, timer = C_ChallengeMode.GetMapUIInfo(mapId)
-                local isTimed = duration > 0 and timer and duration <= timer
-                if isTimed then timed = timed + 1 end
-                lines[#lines + 1] = {
-                    name = mapName or "?", level = level,
-                    duration = duration, timer = timer or 0,
-                    timed = isTimed,
-                }
-            end
+    local lines = {}
+    for _, entry in ipairs(stats.dungeons) do
+        if entry.level > 0 then
+            lines[#lines + 1] = entry
         end
     end
 
-    table.sort(lines, function(a, b) return a.level > b.level end)
-    return lines, bestLevel, bestDungeon, timed, total
+    return lines, stats.bestLevel or 0, stats.bestDungeon or "", stats.timed, stats.total, state
 end
 
 function SMPPlayerSearch:Initialize()
+    SMPRequest:Subscribe(function()
+        if not private.aceFrame or not private.aceFrame:IsShown() then return end
+        private:Refresh()
+    end)
+end
+
+---@param force boolean|nil
+function private:Refresh(force)
+    if not private.query then return end
+    if not private.aceFrame or not private.aceFrame:IsShown() then return end
+
+    if (private.leftScroll:GetWidth() or 0) < MIN_LAYOUT_WIDTH then
+        if not private.layoutPending then
+            private.layoutPending = true
+            C_Timer:After(0, function()
+                private.layoutPending = false
+                private:Refresh(true)
+            end)
+        end
+        return
+    end
+
+    local results, state = SMPRequest:GetSearchResults(private.query)
+    private.searchState = state
+
+    for _, player in ipairs(results) do
+        player.className = getClassFile(player.classID)
+    end
+
+    if not private.selectedPlayer and #results == 1 then
+        private.selectedPlayer = results[1].name
+    end
+
+    local selected = private.selectedPlayer
+    local statsSignature = "-"
+    if selected then
+        local stats, statsState = SMPRequest:GetPlayerStats(selected)
+        statsSignature = tostring(statsState) .. ":" .. tostring(stats and stats.total or 0)
+    end
+
+    local signature = table.concat({ tostring(state), #results, tostring(selected), statsSignature }, "|")
+    if not force and signature == private.lastSignature then return end
+    private.lastSignature = signature
+
+    if state == SMPRequest.State.PENDING then
+        private.emptyListText = "Поиск " .. private.query .. "..."
+    else
+        private.emptyListText = SMPRequest:GetStatusText(state) or "Нет результатов"
+    end
+
+    private.searchResults = results
+    private:RenderPlayerList(selected)
+    private:RenderPlayerDetails(selected)
 end
 
 function private:ShowCopyDialog(url)
@@ -111,7 +156,7 @@ function private:ShowCopyDialog(url)
         eb:SetSize(390, 20)
         eb:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -6)
         eb:SetFont(getSearchFontPath(-1))
-        eb:SetTextColor(1, 1, 1)
+        eb:SetTextColor(WHITE[1], WHITE[2], WHITE[3])
         eb:SetAutoFocus(false)
         eb:SetScript("OnEscapePressed", function() f:Hide() end)
         eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
@@ -246,17 +291,27 @@ local function clearScrollChild(scroll)
     local child = scroll:GetScrollChild()
     if child then
         child:Hide()
+        child:ClearAllPoints()
         child:SetParent(nil)
     end
-    scroll:SetScrollChild(nil)
+    scroll:SetVerticalScroll(0)
+    scroll.staleChild = true
     scroll.rows = {}
+    scroll.contentHeight = 0
+end
+
+local function syncScrollChildWidth(scroll)
+    local child = scroll:GetScrollChild()
+    if not child or scroll.staleChild then return end
+    child:SetWidth(math.max(1, (scroll:GetWidth() or 0) - SCROLL_INDENT))
 end
 
 local function initScrollContent(scroll)
     local child = CreateFrame("Frame", nil, scroll)
-    child:SetWidth(scroll:GetWidth() - SCROLL_INDENT)
+    child:SetWidth(math.max(1, (scroll:GetWidth() or 0) - SCROLL_INDENT))
     child:SetHeight(1)
     scroll:SetScrollChild(child)
+    scroll.staleChild = nil
     scroll.rows = {}
     scroll.contentHeight = 0
     return child
@@ -264,7 +319,7 @@ end
 
 local function addRowToScroll(scroll, row, height)
     local child = scroll:GetScrollChild()
-    if not child then child = initScrollContent(scroll) end
+    if not child or scroll.staleChild then child = initScrollContent(scroll) end
 
     local y = scroll.contentHeight or 0
     row:SetParent(child)
@@ -284,8 +339,7 @@ function SMPPlayerSearch:CreateFrame()
     if not AceGUI then return end
 
     local frame = AceGUI:Create("Frame")
-    frame:SetTitle(string.format("|cff%02x%02x%02xSirusMythicPlus|r - Поиск игроков Mythic+",
-        BRAND[1] * 255, BRAND[2] * 255, BRAND[3] * 255))
+    frame:SetTitle(string.format("|cff%02x%02x%02xSirusMythicPlus|r - Поиск игроков Mythic+", 205, 200, 240))
     frame:SetWidth(720)
     frame:SetHeight(430)
     frame:SetLayout("Fill")
@@ -305,12 +359,12 @@ function SMPPlayerSearch:CreateFrame()
 
     local searchFrame = CreateFrame("Frame", nil, content)
     searchFrame:SetHeight(36)
-    searchFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -4)
+    searchFrame:SetPoint("TOPLEFT", content, "TOPLEFT", -1, -4)
     searchFrame:SetPoint("TOPRIGHT", content, "TOPRIGHT", -4, -4)
 
     local editBoxBg = CreateFrame("Frame", nil, searchFrame)
     editBoxBg:SetHeight(26)
-    editBoxBg:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 2, -4)
+    editBoxBg:SetPoint("TOPLEFT", searchFrame, "TOPLEFT", 0, -4)
     editBoxBg:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -82, -4)
     createStyledBackdrop(editBoxBg, BG_PANEL[1], BG_PANEL[2], BG_PANEL[3], 1,
         PURPLE[1], PURPLE[2], PURPLE[3], 0.6)
@@ -350,16 +404,18 @@ function SMPPlayerSearch:CreateFrame()
     local searchBtn = CreateFrame("Button", nil, searchFrame)
     searchBtn:SetSize(72, 26)
     searchBtn:SetPoint("TOPRIGHT", searchFrame, "TOPRIGHT", -2, -4)
-    createStyledBackdrop(searchBtn, BRAND[1], BRAND[2], BRAND[3], 0.8,
-        BRAND[1], BRAND[2], BRAND[3], 1)
+    createStyledBackdrop(searchBtn, PURPLE_LIGHT_BTN[1], PURPLE_LIGHT_BTN[2], PURPLE_LIGHT_BTN[3], 0.8,
+		PURPLE_LIGHT_BTN[1], PURPLE_LIGHT_BTN[2], PURPLE_LIGHT_BTN[3], 1)
     searchBtn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+
     local hl = searchBtn:GetHighlightTexture()
-    hl:SetVertexColor(BRAND[1] + 0.15, BRAND[2] + 0.15, BRAND[3] + 0.15, 0.3)
+    hl:SetVertexColor(PURPLE_LIGHT_BTN[1] + 0.15, PURPLE_LIGHT_BTN[2] + 0.15, PURPLE_LIGHT_BTN[3] + 0.15, 0.3)
+
     local btnText = searchBtn:CreateFontString(nil, "OVERLAY")
     btnText:SetFont(getSearchFontPath(0))
     btnText:SetPoint("CENTER", searchBtn, "CENTER", 0, 0)
     btnText:SetText("Найти")
-    btnText:SetTextColor(1, 1, 1)
+    btnText:SetTextColor(0.03, 0.02, 0.01)
     searchBtn:SetScript("OnMouseDown", function(self)
         btnText:SetPoint("CENTER", self, "CENTER", 1, -1)
     end)
@@ -383,7 +439,7 @@ function SMPPlayerSearch:CreateFrame()
     leftLabel:SetFont(getSearchFontPath(-1))
     leftLabel:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 8, -6)
     leftLabel:SetText("Результаты")
-    leftLabel:SetTextColor(PURPLE[1], PURPLE[2], PURPLE[3])
+    leftLabel:SetTextColor(0.80, 0.78, 0.94)
 
     local leftScroll = CreateFrame("ScrollFrame", "SMPSearchLeftScroll", leftPanel)
     leftScroll:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", 4, -22)
@@ -394,6 +450,7 @@ function SMPPlayerSearch:CreateFrame()
         local max = math.max(0, self:GetVerticalScrollRange())
         self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * 30)))
     end)
+    leftScroll:SetScript("OnSizeChanged", syncScrollChildWidth)
 
     local rightPanel = CreateFrame("Frame", nil, mainFrame)
     rightPanel:SetPoint("TOPLEFT", leftPanel, "TOPRIGHT", 4, 0)
@@ -410,6 +467,7 @@ function SMPPlayerSearch:CreateFrame()
         local max = math.max(0, self:GetVerticalScrollRange())
         self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * 30)))
     end)
+    rightScroll:SetScript("OnSizeChanged", syncScrollChildWidth)
 
     private.aceFrame = frame
     private.mainFrame = wowFrame
@@ -422,17 +480,25 @@ function SMPPlayerSearch:CreateFrame()
         if private.copyFrame then private.copyFrame:Hide() end
     end)
 
+    if wowFrame then
+        wowFrame:HookScript("OnShow", function()
+            private:Refresh(true)
+        end)
+    end
+
     frame:Hide()
 end
 
 function SMPPlayerSearch:Show(playerName)
     if not private.aceFrame then self:CreateFrame() end
     if not private.aceFrame then return end
+
+    private.aceFrame:Show()
+
     if playerName and playerName ~= "" then
         if private.editBox then private.editBox:SetText(playerName) end
         private:Search(playerName)
     end
-    private.aceFrame:Show()
 end
 
 function SMPPlayerSearch:Hide()
@@ -453,7 +519,7 @@ function private:RenderPlayerList(selectedName)
         local msg = child:CreateFontString(nil, "OVERLAY")
         msg:SetFont(getSearchFontPath(-1))
         msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
-        msg:SetText("Нет результатов")
+        msg:SetText(private.emptyListText or "Нет результатов")
         msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
         private.leftLabel:SetText("Результаты")
         return
@@ -463,7 +529,7 @@ function private:RenderPlayerList(selectedName)
 
     for _, player in ipairs(private.searchResults) do
         local row = createPlayerRow(nil)
-        local cc = SMPLib:ClassColorRGB(player.classID)
+        local cc = SMPLib:ClassColorRGB(player.className)
         local rc = SMPLib:RankColorRGB(player.rank)
         local sc = SMPLib:ScoreColorRGB(player.score)
         local isSelected = player.name == selectedName
@@ -500,6 +566,16 @@ end
 function private:RenderPlayerDetails(selectedName)
     clearScrollChild(private.rightScroll)
 
+	if #private.searchResults == 0 then
+        local child = initScrollContent(private.rightScroll)
+        local msg = child:CreateFontString(nil, "OVERLAY")
+        msg:SetFont(getSearchFontPath(-1))
+        msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
+        msg:SetText("Нет результатов для отображения")
+        msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+        return
+    end
+
     if not selectedName then
         local child = initScrollContent(private.rightScroll)
         local msg = child:CreateFontString(nil, "OVERLAY")
@@ -515,7 +591,7 @@ function private:RenderPlayerDetails(selectedName)
     for _, p in ipairs(private.searchResults) do
         if p.name == selectedName then
             found = true
-            local cc = SMPLib:ClassColorRGB(p.classID)
+            local cc = SMPLib:ClassColorRGB(p.className)
             local rc = SMPLib:RankColorRGB(p.rank)
             local sc = SMPLib:ScoreColorRGB(p.score)
 
@@ -578,19 +654,32 @@ function private:RenderPlayerDetails(selectedName)
     end
     if not found then return end
 
-    local dungeonData, bestLevel, bestDungeon, timed, total = buildPlayerDetail(selectedName)
+    local dungeonData, bestLevel, bestDungeon, timed, total, statsState = buildPlayerDetail(selectedName)
 
     if #dungeonData == 0 then
         local spacer = CreateFrame("Frame", nil, nil)
         spacer:SetHeight(8)
         addRowToScroll(private.rightScroll, spacer, 8)
 
+        local text
+        if statsState == SMPRequest.State.PENDING then
+            text = "Данные по данжам загружаются..."
+        elseif statsState == SMPRequest.State.TIMEOUT then
+            text = "Сервер не ответил на запрос статистики"
+        elseif statsState == SMPRequest.State.NOT_FOUND then
+            text = "Игрока нет в базе Mythic+"
+        elseif statsState == SMPRequest.State.EMPTY then
+            text = "У игрока нет забегов Mythic+ в этом сезоне"
+        else
+            text = "Данные по данжам недоступны"
+        end
+
         local msg = CreateFrame("Frame", nil, nil)
         msg:SetHeight(16)
         local msgText = msg:CreateFontString(nil, "OVERLAY")
         msgText:SetFont(getSearchFontPath(-1))
         msgText:SetPoint("LEFT", msg, "LEFT", 8, 0)
-        msgText:SetText("Данные по данжам загружаются...")
+        msgText:SetText(text)
         msgText:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
         addRowToScroll(private.rightScroll, msg, 16)
         return
@@ -715,103 +804,30 @@ function private:RenderPlayerDetails(selectedName)
     end
 end
 
-local CHECK_INTERVAL = 1
-local REQUEST_INTERVAL = 3
-
 function private:SelectPlayer(playerName)
     private.selectedPlayer = playerName
-    private.lastRequestTime = 0
 
-    if C_MythicPlus.RequestPlayerStat then
-        C_MythicPlus.RequestPlayerStat(playerName)
-        private.lastRequestTime = GetTime()
-    end
-
-    self:RenderPlayerList(playerName)
-    self:RenderPlayerDetails(playerName)
-    self:PollPlayerData(playerName, 1)
-end
-
-function private:PollPlayerData(playerName, attempt)
-    if private.selectedPlayer ~= playerName then return end
-    if attempt > MAX_RETRIES * 3 then return end
-
-    C_Timer:After(CHECK_INTERVAL, function()
-        if private.selectedPlayer ~= playerName then return end
-
-        local dungeonData = buildPlayerDetail(playerName)
-        if #dungeonData > 0 then
-            self:RenderPlayerDetails(playerName)
-            return
-        end
-
-        local now = GetTime()
-        if now - (private.lastRequestTime or 0) >= REQUEST_INTERVAL then
-            if C_MythicPlus.RequestPlayerStat then
-                C_MythicPlus.RequestPlayerStat(playerName)
-                private.lastRequestTime = now
-            end
-        end
-
-        self:PollPlayerData(playerName, attempt + 1)
-    end)
+    SMPRequest:GetPlayerStats(playerName)
+    private:Refresh(true)
 end
 
 function private:Search(playerName)
     if not playerName or playerName == "" then return end
     playerName = playerName:gsub("^%s+", ""):gsub("%s+$", "")
+    if playerName == "" then return end
 
-    private.pendingSearch = playerName
+    private.query = playerName
     private.selectedPlayer = nil
     private.searchResults = {}
+    private.lastSignature = nil
+    private.emptyListText = "Поиск " .. playerName .. "..."
 
     clearScrollChild(private.leftScroll)
     clearScrollChild(private.rightScroll)
 
-    local child = initScrollContent(private.leftScroll)
-    local msg = child:CreateFontString(nil, "OVERLAY")
-    msg:SetFont(getSearchFontPath(-1))
-    msg:SetPoint("TOPLEFT", child, "TOPLEFT", 8, 0)
-    msg:SetText("Поиск " .. playerName .. "...")
-    msg:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+    SMPRequest:StartSearch(playerName)
 
-    if C_MythicPlus.RequestPlayerStat then
-        C_MythicPlus.RequestPlayerStat(playerName)
-    end
-
-    if C_Ladder and C_Ladder.RequestSearch then
-        pcall(function() C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, playerName) end)
-    end
-
-    private:PollForResult(playerName, 1)
-end
-
-function private:PollForResult(playerName, attempt)
-    if not private.pendingSearch or private.pendingSearch ~= playerName then return end
-    if attempt > MAX_RETRIES then
-        private.searchResults = getSearchResults()
-        self:RenderResults(nil)
-        private.pendingSearch = nil
-        return
-    end
-
-    C_Timer:After(CHECK_INTERVAL, function()
-        if not private.pendingSearch or private.pendingSearch ~= playerName then return end
-
-        local results = getSearchResults()
-        if #results > 0 then
-            private.searchResults = results
-            if #results == 1 then
-                private:SelectPlayer(results[1].name)
-            else
-                self:RenderResults(nil)
-            end
-            private.pendingSearch = nil
-            return
-        end
-
-        private:PollForResult(playerName, attempt + 1)
-    end)
+    private:Refresh(true)
 end
 
 function private:RenderResults(selectedName)

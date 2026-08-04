@@ -13,26 +13,23 @@ local SMPSlash = SMPLoader:ImportModule("SMPSlash")
 local SMPTaboo = SMPLoader:ImportModule("SMPTaboo")
 ---@type SMPMinimapButton
 local SMPMinimapButton = SMPLoader:ImportModule("SMPMinimapButton")
----@type SMPCore
-local SMPCore = SMPLoader:ImportModule("SMPCore")
----@type SMPFrame
-local SMPFrame = SMPLoader:ImportModule("SMPFrame")
 ---@type SMPPlayerSearch
 local SMPPlayerSearch = SMPLoader:ImportModule("SMPPlayerSearch")
 ---@type SMPDebug
 local SMPDebug = SMPLoader:ImportModule("SMPDebug")
 ---@type SMPMessageBus
 local SMPMessageBus = SMPLoader:ImportModule("SMPMessageBus")
+---@type SMPRequest
+local SMPRequest = SMPLoader:ImportModule("SMPRequest")
 
 function SMP:OnInitialize()
     SMPConfig:Initialize()
+    SMPRequest:Initialize()
     SMPEventHandler:RegisterEvents()
     SMPSlash:RegisterCommands()
     SMPTaboo:Initialize()
     SMPMinimapButton:Initialize()
     SMPPlayerSearch:Initialize()
-    SMPFrame:Initialize()
-    SMPCore:Initialize()
     SMPDebug:HookMessageBus(SMPMessageBus.shared)
 end
 
