@@ -5,14 +5,14 @@ local _EventHandler = SMPEventHandler.private
 ---@type SMPTaboo
 local SMPTaboo = SMPLoader:ImportModule("SMPTaboo")
 
----@type SMPFrame
-local SMPFrame = SMPLoader:ImportModule("SMPFrame")
-
 ---@type SMPMessageBus
 local SMPMessageBus = SMPLoader:ImportModule("SMPMessageBus")
 
 ---@type SMPDebug
 local SMPDebug = SMPLoader:ImportModule("SMPDebug")
+
+---@type SMPRequest
+local SMPRequest = SMPLoader:ImportModule("SMPRequest")
 
 local MODIFIER_KEYS = {
     LSHIFT = true,
@@ -23,40 +23,23 @@ local MODIFIER_KEYS = {
     RALT = true,
 }
 
-function _EventHandler:MythicPlusStatUpdate(_, success)
-    if success and SMPTaboo:IsShown() then
-        C_Timer:After(0.1, function()
-            SMPTaboo:RefreshTooltip()
-        end)
-    end
-end
+local CUSTOM_EVENTS = {
+    "MYTHIC_PLUS_PLAYER_STAT_UPDATE",
+    "CHALLENGE_MODE_SCORE_UPDATE",
+    "CHALLENGE_MODE_MAPS_UPDATE",
+    "LADDER_MYTHIC_PLUS_SEARCH_RESULT",
+    "LADDER_MYTHIC_PLUS_SEARCH_ERROR",
+    "LADDER_MYTHIC_PLUS_SEARCH_DELAY",
+    "LADDER_MYTHIC_PLUS_PLAYER",
+    "INSPECT_ITEM_LEVEL_UPDATE",
+}
 
-function _EventHandler:ChallengeModeScoreUpdate()
-    if SMPTaboo:IsShown() then
-        C_Timer:After(0.1, function()
-            SMPTaboo:RefreshTooltip()
-        end)
-    end
-end
+local WOW_EVENTS = {
+    "ADDON_LOADED",
+    "MODIFIER_STATE_CHANGED",
+}
 
-function _EventHandler:ChallengeModeMapsUpdate()
-    if SMPTaboo:IsShown() then
-        C_Timer:After(0.1, function()
-            SMPTaboo:RefreshTooltip()
-        end)
-    end
-end
-
-function _EventHandler:LadderSearchResult(_, bracketType, searchText)
-    SMPMessageBus.shared:Fire("LadderSearchResult", bracketType, searchText)
-    if SMPTaboo:IsShown() then
-        C_Timer:After(0.1, function()
-            SMPTaboo:RefreshTooltip()
-        end)
-    end
-end
-
-function _EventHandler:ModifierStateChanged(_, key)
+function _EventHandler:ModifierStateChanged(key)
     if not MODIFIER_KEYS[key] then return end
     if not SMPTaboo:IsShown() then return end
 
@@ -72,43 +55,53 @@ end
 function SMPEventHandler:RegisterEvents()
     local f = CreateFrame("Frame")
 
-    if RegisterCustomEvent then
-        RegisterCustomEvent(f, "MYTHIC_PLUS_PLAYER_STAT_UPDATE")
-        RegisterCustomEvent(f, "CHALLENGE_MODE_SCORE_UPDATE")
-        RegisterCustomEvent(f, "CHALLENGE_MODE_MAPS_UPDATE")
-        RegisterCustomEvent(f, "LADDER_MYTHIC_PLUS_SEARCH_RESULT")
+    if f.RegisterCustomEvent then
+        for _, event in ipairs(CUSTOM_EVENTS) do
+            f:RegisterCustomEvent(event)
+        end
+    else
+        SMPDebug:Log("ERROR", "[EventHandler] RegisterCustomEvent недоступен, M+ события не будут приходить")
     end
 
-    f:RegisterEvent("ADDON_LOADED")
-    f:RegisterEvent("MYTHIC_PLUS_PLAYER_STAT_UPDATE")
-    f:RegisterEvent("CHALLENGE_MODE_SCORE_UPDATE")
-    f:RegisterEvent("CHALLENGE_MODE_MAPS_UPDATE")
-    f:RegisterEvent("LADDER_MYTHIC_PLUS_SEARCH_RESULT")
-    f:RegisterEvent("MODIFIER_STATE_CHANGED")
+    for _, event in ipairs(WOW_EVENTS) do
+        f:RegisterEvent(event)
+    end
 
     f:SetScript("OnEvent", function(_, event, ...)
-        local args = ""
-        for i = 1, select("#", ...) do
-            local v = select(i, ...)
-            args = args .. tostring(v) .. (i < select("#", ...) and ", " or "")
-        end
-        SMPDebug:Log("WOW_EVENT", "[EventHandler] " .. event .. (args ~= "" and (" (" .. args .. ")") or ""))
-
-        if event == "ADDON_LOADED" then
-            local addonName = ...
-            if addonName == "ElvUI" or (addonName and addonName:match("^SharedMedia")) then
-                SMPFrame:InvalidateTextures()
+        if SMPDebug:IsEnabled() then
+            local parts = {}
+            for i = 1, select("#", ...) do
+                parts[i] = tostring(select(i, ...))
             end
-        elseif event == "MYTHIC_PLUS_PLAYER_STAT_UPDATE" then
-            _EventHandler:MythicPlusStatUpdate(...)
+            local args = table.concat(parts, ", ")
+            SMPDebug:Log("WOW_EVENT", "[EventHandler] " .. event .. (args ~= "" and (" (" .. args .. ")") or ""))
+        end
+
+        if event == "MYTHIC_PLUS_PLAYER_STAT_UPDATE" then
+            local success = ...
+            SMPRequest:HandleStatUpdate(success)
         elseif event == "CHALLENGE_MODE_SCORE_UPDATE" then
-            _EventHandler:ChallengeModeScoreUpdate()
+            SMPRequest:HandleScoreUpdate()
         elseif event == "CHALLENGE_MODE_MAPS_UPDATE" then
-            _EventHandler:ChallengeModeMapsUpdate()
+            SMPRequest:HandleMapsUpdate()
         elseif event == "LADDER_MYTHIC_PLUS_SEARCH_RESULT" then
-            _EventHandler:LadderSearchResult(...)
+            local bracketType, searchText = ...
+            SMPMessageBus.shared:Fire("LadderSearchResult", bracketType, searchText)
+            SMPRequest:HandleSearchResult(bracketType, searchText)
+        elseif event == "LADDER_MYTHIC_PLUS_SEARCH_ERROR" then
+            local bracketType, errorText = ...
+            SMPRequest:HandleSearchError(bracketType, errorText)
+        elseif event == "LADDER_MYTHIC_PLUS_SEARCH_DELAY" then
+            local bracketType, delaySeconds = ...
+            SMPRequest:HandleSearchDelay(bracketType, delaySeconds)
+        elseif event == "LADDER_MYTHIC_PLUS_PLAYER" then
+            SMPRequest:HandleScoreUpdate()
+        elseif event == "INSPECT_ITEM_LEVEL_UPDATE" then
+            local guid = ...
+            SMPRequest:HandleInspectItemLevel(guid)
         elseif event == "MODIFIER_STATE_CHANGED" then
-            _EventHandler:ModifierStateChanged(...)
+            local key = ...
+            _EventHandler:ModifierStateChanged(key)
         end
     end)
 end

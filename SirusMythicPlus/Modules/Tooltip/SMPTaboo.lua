@@ -5,72 +5,48 @@ local private = SMPTaboo.private
 ---@type SMPConfig
 local SMPConfig = SMPLoader:ImportModule("SMPConfig")
 
+---@type SMPLib
+local SMPLib = SMPLoader:ImportModule("SMPLib")
+
+---@type SMPRequest
+local SMPRequest = SMPLoader:ImportModule("SMPRequest")
+
+---@type SMPDebug
+local SMPDebug = SMPLoader:ImportModule("SMPDebug")
+
 local MPLUS_ICON = "Interface\\Icons\\INV_Relics_Hourglass"
 local ICON_SIZE = 14
-local SCORE_MIN = 0
-local SCORE_MAX = 2500
-local MYTHIC_PLUS_BRACKET = Enum.LadderBracketType.MYTHIC_PLUS
+
+local LABEL = { 1, 0.82, 0 }
+local DIM = { 0.5, 0.5, 0.5 }
 
 local DUNGEON_ABBREVIATIONS = {
     ["Аукенайские гробницы"] = "АГ",
     ["Бастионы Адского Пламени"] = "БАП",
     ["Гробницы Маны"] = "ГМ",
     ["Крепость Драк'Тарон"] = "КД'Т",
+    ["Крепость Утгарда"] = "КУ",
     ["Крепость Утгард"] = "КУ",
     ["Кузня Крови"] = "КК",
+    ["Пик Утгарда"] = "ПУ",
+    ["Цитадель Утгарда"] = "ЦУ",
     ["Узилище"] = "У",
     ["Чертоги Молний"] = "ЧМ",
     ["Королевство Ан'кахет"] = "КА",
-}
-
-local SCORE_STOPS = {
-    { 0.00, 0.12, 0.80, 0.20 },
-    { 0.35, 0.00, 0.44, 0.87 },
-    { 0.65, 0.64, 0.21, 0.93 },
-    { 1.00, 1.00, 0.50, 0.00 },
+    ["Ан'кахет: Старое Королевство"] = "КА",
 }
 
 private.currentTooltipGUID = nil
 private.isRefreshing = false
-private.ladderSafe = true
+private.liveCountdown = false
 
----@param x number
----@param a number
----@param b number
----@return number
-local function clamp(x, a, b)
-    if x < a then return a end
-    if x > b then return b end
-    return x
-end
-
----@param a number
----@param b number
----@param t number
----@return number
-local function lerp(a, b, t)
-    return a + (b - a) * t
-end
-
----@param x number
----@return number
-local function toByte01(x)
-    x = clamp(x, 0, 1)
-    return math.floor(x * 255 + 0.5)
-end
-
----@param r number
----@param g number
----@param b number
----@return string
-local function rgbToHex(r, g, b)
-    return ("|cff%02x%02x%02x"):format(toByte01(r), toByte01(g), toByte01(b))
-end
-
----@param name string
+---@param name string|nil
 ---@return string
 local function abbreviateDungeon(name)
     if not name then return "?" end
+
+    name = tostring(name):gsub("%s*%(%d+%)%s*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+
     local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
     if cfg.abbreviateDungeons then
         return DUNGEON_ABBREVIATIONS[name] or name
@@ -80,294 +56,65 @@ end
 
 ---@param tt table
 ---@param left string
----@param right string
----@param lr number|nil left R
----@param lg number|nil left G
----@param lb number|nil left B
----@param rr number|nil right R
----@param rg number|nil right G
----@param rb number|nil right B
-local function addPair(tt, left, right, lr, lg, lb, rr, rg, rb)
-    if right and right ~= "" then
-        tt:AddDoubleLine(left, right,
-            lr or 1, lg or 0.82, lb or 0,
-            rr or 1, rg or 1, rb or 1)
-    end
-end
-
-local function hexToRGB(hex)
-    if not hex then return 1, 1, 1 end
-    hex = hex:gsub("|c", ""):gsub("|r", ""):gsub("^FF", ""):gsub("^ff", "")
-    local r = tonumber(hex:sub(1, 2), 16) or 255
-    local g = tonumber(hex:sub(3, 4), 16) or 255
-    local b = tonumber(hex:sub(5, 6), 16) or 255
-    return r / 255, g / 255, b / 255
-end
-
----@param level number
----@return string
-local function keyColor(level)
-    level = tonumber(level or 0) or 0
-    if level >= 15 then
-        return "|cffffd100"
-    elseif level >= 10 then
-        return "|cffa335ee"
-    else
-        return "|cff0070dd"
-    end
+---@param right string|nil
+---@param rightColor table|nil
+local function addPair(tt, left, right, rightColor)
+    if not right or right == "" then return end
+    local c = rightColor or { 1, 1, 1 }
+    tt:AddDoubleLine(left, right, LABEL[1], LABEL[2], LABEL[3], c[1], c[2], c[3])
 end
 
 ---@param level number|nil
 ---@param dungeon string|nil
 ---@return string|nil
 local function fmtKey(level, dungeon)
-    if not level or level == 0 then return nil end
     level = tonumber(level)
-    if not level then return nil end
+    if not level or level == 0 then return nil end
 
-    local c = keyColor(level)
-    local reset = "|r"
-
+    local color = SMPLib:KeyColor(level)
     if not dungeon or dungeon == "" then
-        return (c .. "+%d" .. reset):format(level)
+        return (color .. "+%d|r"):format(level)
     end
-
-    dungeon = abbreviateDungeon(tostring(dungeon):gsub("%s*%(%d+%)%s*$", ""))
-    return (c .. "+%d" .. reset .. "  %s"):format(level, dungeon)
+    return (color .. "+%d|r  %s"):format(level, abbreviateDungeon(dungeon))
 end
 
----@param score number
----@return string
-local function scoreColor(score)
-    score = tonumber(score or 0) or 0
-
-    local t = 0
-    if SCORE_MAX > SCORE_MIN then
-        t = (score - SCORE_MIN) / (SCORE_MAX - SCORE_MIN)
-    end
-
-    t = clamp(t, 0, 1)
-
-    local prev = SCORE_STOPS[1]
-    for i = 2, #SCORE_STOPS do
-        local cur = SCORE_STOPS[i]
-        if t <= cur[1] then
-            local span = cur[1] - prev[1]
-            local lt = (span > 0) and ((t - prev[1]) / span) or 0
-
-            local r = lerp(prev[2], cur[2], lt)
-            local g = lerp(prev[3], cur[3], lt)
-            local b = lerp(prev[4], cur[4], lt)
-
-            return rgbToHex(r, g, b)
-        end
-        prev = cur
-    end
-
-    local last = SCORE_STOPS[#SCORE_STOPS]
-    return rgbToHex(last[2], last[3], last[4])
-end
-
----@param rank number
+---@param sec number|nil
 ---@return string|nil
-local function formatRank(rank)
-    if not rank then return nil end
-
-    if rank <= 20 then
-        return "|cffffd100" .. rank .. "|r"
-    elseif rank <= 100 then
-        return "|cffff8000" .. rank .. "|r"
-    elseif rank <= 1000 then
-        return "|cffa335ee" .. rank .. "|r"
-    else
-        return tostring(rank)
-    end
-end
-
----@return number timed
----@return number total
-local function getLocalRunStats()
-    local runs = C_MythicPlus.GetRunHistory and C_MythicPlus.GetRunHistory(true, true)
-    if not runs then return 0, 0 end
-
-    local timed = 0
-    local total = #runs
-    for _, run in ipairs(runs) do
-        if run.completed then
-            timed = timed + 1
-        end
-    end
-    return timed, total
-end
-
----@param playerName string
----@return number timed
----@return number total
-local function getOtherRunStats(playerName)
-    local mapsTable = C_ChallengeMode.GetMapTable()
-    if not mapsTable or #mapsTable == 0 then return 0, 0 end
-
-    local timed = 0
-    local total = 0
-
-    for i = 1, #mapsTable do
-        local mapChallengeModeID = mapsTable[i]
-        local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
-        if statInfo and statInfo.level and statInfo.level > 0 then
-            total = total + 1
-            local _, _, timer = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-            if statInfo.durationSec and timer and statInfo.durationSec <= timer then
-                timed = timed + 1
-            end
-        end
-    end
-
-    return timed, total
-end
-
----@return number|nil bestLevel
----@return string|nil bestDungeon
-local function findLocalBestKey()
-    local mapScoreInfo = C_ChallengeMode.GetMapScoreInfo()
-    if not mapScoreInfo then return nil, nil end
-
-    local bestLevel = 0
-    local bestDungeon = nil
-
-    for _, info in ipairs(mapScoreInfo) do
-        if info.level and info.level > bestLevel then
-            bestLevel = info.level
-            bestDungeon = info.name
-        end
-    end
-
-    if bestLevel > 0 then
-        return bestLevel, bestDungeon
-    end
-    return nil, nil
-end
-
----@return table<number, {name: string, level: number, duration: number, timer: number}>|nil
-local function getLocalAllKeys()
-    local mapScoreInfo = C_ChallengeMode.GetMapScoreInfo()
-    if not mapScoreInfo then return nil end
-
-    local result = {}
-    for _, info in ipairs(mapScoreInfo) do
-        local duration = 0
-        local timer = 0
-        if info.level and info.level > 0 then
-            local inTimeInfo = C_MythicPlus.GetSeasonBestForMap(info.mapChallengeModeID)
-            if inTimeInfo then
-                duration = inTimeInfo.durationSec or 0
-            end
-            local _, _, t = C_ChallengeMode.GetMapUIInfo(info.mapChallengeModeID)
-            timer = t or 0
-        end
-        result[#result + 1] = {
-            name = info.name or "?",
-            level = info.level or 0,
-            duration = duration,
-            timer = timer,
-        }
-    end
-
-    table.sort(result, function(a, b)
-        if a.level == b.level then
-            return a.name < b.name
-        end
-        return a.level > b.level
-    end)
-
-    return result
-end
-
----@param playerName string
----@return number|nil bestLevel
----@return string|nil bestDungeon
-local function findOtherBestKey(playerName)
-    local mapsTable = C_ChallengeMode.GetMapTable()
-    if not mapsTable or #mapsTable == 0 then return nil, nil end
-
-    local bestLevel = 0
-    local bestDungeon = nil
-
-    for i = 1, #mapsTable do
-        local mapChallengeModeID = mapsTable[i]
-        local mapName = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-        local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
-
-        if statInfo and statInfo.level and statInfo.level > bestLevel then
-            bestLevel = statInfo.level
-            bestDungeon = mapName
-        end
-    end
-
-    if bestLevel > 0 then
-        return bestLevel, bestDungeon
-    end
-    return nil, nil
-end
-
----@param playerName string
----@return table<number, {name: string, level: number, duration: number, timer: number}>|nil
-local function getOtherAllKeys(playerName)
-    local mapsTable = C_ChallengeMode.GetMapTable()
-    if not mapsTable or #mapsTable == 0 then return nil end
-
-    local result = {}
-
-    for i = 1, #mapsTable do
-        local mapChallengeModeID = mapsTable[i]
-        local mapName = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-        local statInfo = C_MythicPlus.GetPlayerStatsForMap(playerName, mapChallengeModeID)
-        local level = statInfo and statInfo.level or 0
-        local duration = statInfo and statInfo.durationSec or 0
-        local _, _, timer = C_ChallengeMode.GetMapUIInfo(mapChallengeModeID)
-
-        result[#result + 1] = {
-            name = mapName or "?",
-            level = level,
-            duration = duration,
-            timer = timer or 0,
-        }
-    end
-
-    table.sort(result, function(a, b)
-        if a.level == b.level then
-            return a.name < b.name
-        end
-        return a.level > b.level
-    end)
-
-    return result
-end
-
----@param tt table
----@param allKeys table
 local function fmtDuration(sec)
     if not sec or sec == 0 then return nil end
     return math.floor(sec / 60) .. ":" .. string.format("%02d", sec % 60)
 end
 
-local function addDungeonList(tt, allKeys)
-    if not allKeys or #allKeys == 0 then return end
+---@param seconds number
+---@return string
+local function fmtCountdown(seconds)
+    local days = math.floor(seconds / 86400)
+    local hours = math.floor(seconds % 86400 / 3600)
+    local mins = math.floor(seconds % 3600 / 60)
+    local secs = math.floor(seconds % 60)
+    return days .. "д " .. hours .. "ч " .. mins .. "м " .. secs .. "с"
+end
+
+---@param tt table
+---@param dungeons table|nil
+local function addDungeonList(tt, dungeons)
+    if not dungeons or #dungeons == 0 then return end
 
     tt:AddLine(" ")
 
-    for _, entry in ipairs(allKeys) do
-        local left = "|cffffffff" .. entry.name .. "|r"
-        local right = ""
+    for _, entry in ipairs(dungeons) do
+        local left = "|cffffffff" .. abbreviateDungeon(entry.name) .. "|r"
+        local right
 
         if entry.level > 0 then
-            local dur = fmtDuration(entry.duration)
-            local tmr = fmtDuration(entry.timer)
-            if dur and tmr then
-                right = "|cff808080(" .. dur .. "/" .. tmr .. ")|r "
+            local duration = fmtDuration(entry.duration)
+            local timer = fmtDuration(entry.timer)
+            if duration and timer then
+                right = "|cff808080(" .. duration .. "/" .. timer .. ")|r "
             else
                 right = "|cff808080(нет данных)|r "
             end
-            right = right .. keyColor(entry.level) .. "+" .. entry.level .. "|r"
+            right = right .. SMPLib:KeyColor(entry.level) .. "+" .. entry.level .. "|r"
         else
             right = "|cff808080-|r"
         end
@@ -376,87 +123,64 @@ local function addDungeonList(tt, allKeys)
     end
 end
 
----@param playerName string
----@return number|nil rank
-local function getLadderRank(playerName)
-    if not private.ladderSafe then return nil end
-    if not C_Ladder or not C_Ladder.RequestSearch then return nil end
+---@param tt table
+---@return boolean liveCountdown нужен ли посекундный тик
+local function addSeasonLine(tt)
+    if not (C_MythicPlus and C_MythicPlus.GetCurrentSeason) then return false end
 
-    local numResults = C_Ladder.GetNumSearchResults(MYTHIC_PLUS_BRACKET)
-    if numResults and numResults > 0 then
-        for i = 1, numResults do
-            local rank, name = C_Ladder.GetSearchResultPlayerInfo(MYTHIC_PLUS_BRACKET, i)
-            if name and name == playerName then
-                return tonumber(rank)
-            end
-        end
+    local season, week = C_MythicPlus.GetCurrentSeason()
+    if not season or not week then
+        tt:AddLine("|cff888888Межсезонье|r", 1, 1, 1)
+        return false
     end
 
-    local ok, err = pcall(function()
-        C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, playerName)
-    end)
+    local left = "|cffFFD100Сезон|r " .. season .. " |cff888888(Неделя " .. week .. "/12)|r"
 
-    if not ok then
-        print("|cffff0000SMP|r: C_Ladder.RequestSearch error for '" .. tostring(playerName) .. "': " .. tostring(err))
+    local timeLeft = C_MythicPlus.GetSeasonTimeLeft and C_MythicPlus.GetSeasonTimeLeft() or 0
+    if timeLeft and timeLeft > 0 then
+        tt:AddDoubleLine(left, fmtCountdown(timeLeft), 1, 1, 1, 1, 1, 1)
+        private.seasonLineIndex = tt:NumLines()
+        private.seasonLineText = left
+        return true
     end
 
-    return nil
+    tt:AddLine(left, 1, 1, 1)
+    return false
 end
 
 ---@param tt table
 ---@param unit string
+---@return boolean liveCountdown
 local function renderTooltip(tt, unit)
-    if not UnitIsPlayer(unit) then return end
-    if UnitIsEnemy("player", unit) then return end
+    private.seasonLineIndex = nil
+
+    if not UnitIsPlayer(unit) then return false end
+    if UnitIsEnemy("player", unit) then return false end
 
     local name = UnitName(unit)
-    if not name then return end
+    if not name then return false end
 
     local isLocal = UnitIsUnit(unit, "player")
 
-    local score = 0
+    local score
     if isLocal then
-        local dungeonScore = C_ChallengeMode.GetOverallDungeonScore()
-        if C_GlobalStorage and C_GlobalStorage.GetVar then
-            local scoreData = C_GlobalStorage.GetVar("ASMSG_MYTHIC_PLUS_PLAYER_SCORE")
-            if scoreData and dungeonScore == nil then
-                dungeonScore = scoreData.dungeonScore
-            end
-        end
-        score = dungeonScore or 0
+        score = C_ChallengeMode.GetOverallDungeonScore() or 0
     else
-        local mythicRating = C_Inspect and C_Inspect.GetMythicRating and C_Inspect.GetMythicRating(unit)
-        score = mythicRating or 0
+        score = SMPRequest:GetMythicRating(unit) or 0
     end
 
-    if score <= 0 then return end
+    if score <= 0 then return false end
 
-    local bestLevel, bestDungeon
+    local stats, statsState
     if isLocal then
-        bestLevel, bestDungeon = findLocalBestKey()
-        if not bestLevel and C_MythicPlus.RequestMapInfo then
-            C_MythicPlus.RequestMapInfo()
-        end
+        stats, statsState = SMPRequest:GetLocalStats()
     else
-        bestLevel, bestDungeon = findOtherBestKey(name)
-        if not bestLevel and C_MythicPlus.RequestPlayerStat then
-            C_MythicPlus.RequestPlayerStat(name)
-            C_Timer:After(1, function()
-                if SMPTaboo:IsShown() then
-                    SMPTaboo:RefreshTooltip()
-                end
-            end)
-            C_Timer:After(3, function()
-                if SMPTaboo:IsShown() then
-                    SMPTaboo:RefreshTooltip()
-                end
-            end)
-        end
+        stats, statsState = SMPRequest:GetPlayerStats(name)
     end
 
-    local rank = getLadderRank(name)
+    local rank = SMPRequest:GetLadderRank(name, isLocal)
+
     local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
-
     if cfg.showSeparator ~= false then
         tt:AddLine(" ")
     end
@@ -464,99 +188,42 @@ local function renderTooltip(tt, unit)
     local icon = ("|T%s:%d:%d:0:0|t "):format(MPLUS_ICON, ICON_SIZE, ICON_SIZE)
     tt:AddLine(icon .. "|cff00ff00Mythic+|r", 1, 1, 1)
 
-    if C_MythicPlus and C_MythicPlus.GetCurrentSeason and C_MythicPlus.GetSeasonTimeLeft then
-        local season, week = C_MythicPlus.GetCurrentSeason()
-        local timeLeft = C_MythicPlus.GetSeasonTimeLeft()
-        if season and week and timeLeft and timeLeft > 0 then
-            local days = math.floor(timeLeft / 86400)
-            local hours = math.floor(timeLeft % 86400 / 3600)
-            local mins = math.floor(timeLeft % 3600 / 60)
-            local secs = math.floor(timeLeft % 60)
-            local timeStr = days .. "д " .. hours .. "ч " .. mins .. "м " .. secs .. "с"
-            local leftStr = "|cffFFD100Сезон|r " .. season .. " |cff888888(Неделя " .. week .. "/12)|r"
-            tt:AddDoubleLine(leftStr, timeStr, 1, 1, 1, 1, 1, 1)
-        elseif season and week then
-            local leftStr = "|cffFFD100Сезон|r " .. season .. " |cff888888(Неделя " .. week .. "/12)|r"
-            tt:AddLine(leftStr, 1, 1, 1)
-        else
-            tt:AddLine("|cff888888Межсезонье|r", 1, 1, 1)
-        end
-    end
+    local liveCountdown = addSeasonLine(tt)
 
-    local s = math.floor(score)
-    tt:AddDoubleLine("Рейтинг M+", tostring(s), 1, 0.82, 0, hexToRGB(scoreColor(s)))
+    local rounded = math.floor(score)
+    addPair(tt, "Рейтинг M+", tostring(rounded), SMPLib:ScoreColorRGB(rounded))
 
     if rank then
-        local rankColor = "|cff808080"
-        if rank <= 20 then rankColor = "|cffffd100"
-        elseif rank <= 100 then rankColor = "|cffff8000"
-        elseif rank <= 1000 then rankColor = "|cffa335ee"
-        end
-        tt:AddDoubleLine("Место в ладдере", tostring(rank), 1, 0.82, 0, hexToRGB(rankColor))
+        addPair(tt, "Место в ладдере", tostring(rank), SMPLib:RankColorRGB(rank))
     end
 
-    local keyText = fmtKey(bestLevel, bestDungeon)
+    local bestLevel = stats and stats.bestLevel
+    local keyText = fmtKey(bestLevel, stats and stats.bestDungeon)
     if keyText then
-        tt:AddDoubleLine("Макс. ключ", keyText, 1, 0.82, 0, hexToRGB(keyColor(bestLevel)))
-    elseif not isLocal and bestLevel == nil then
-        tt:AddDoubleLine("Макс. ключ", "|cffffd100Загрузка...|r", 1, 0.82, 0, 1, 0.82, 0)
+        addPair(tt, "Макс. ключ", keyText, SMPLib:KeyColorRGB(bestLevel))
     else
-        tt:AddDoubleLine("Макс. ключ", "-", 1, 0.82, 0, 0.5, 0.5, 0.5)
+        addPair(tt, "Макс. ключ", SMPRequest:GetStatusText(statsState) or "-", DIM)
     end
 
-    local showDungeonList = IsShiftKeyDown() or cfg.showDungeonListAlways
-    if showDungeonList then
-        local allKeys
-        if isLocal then
-            allKeys = getLocalAllKeys()
-            if not allKeys and C_MythicPlus.RequestMapInfo then
-                C_MythicPlus.RequestMapInfo()
-            end
-        else
-            allKeys = getOtherAllKeys(name)
-            if not allKeys and C_MythicPlus.RequestPlayerStat then
-                C_MythicPlus.RequestPlayerStat(name)
-                C_Timer:After(1, function()
-                    if SMPTaboo:IsShown() then
-                        SMPTaboo:RefreshTooltip()
-                    end
-                end)
-                C_Timer:After(3, function()
-                    if SMPTaboo:IsShown() then
-                        SMPTaboo:RefreshTooltip()
-                    end
-                end)
-            end
+    if IsShiftKeyDown() or cfg.showDungeonListAlways then
+        if stats then
+            addDungeonList(tt, stats.dungeons)
         end
-        addDungeonList(tt, allKeys)
-    else
-        if isLocal then
-            local timed, total = getLocalRunStats()
-            if total > 0 then
-                tt:AddDoubleLine("Забеги (в таймер/всего)", timed .. "/" .. total, 1, 0.82, 0, 1, 1, 1)
-            end
-        else
-            local timed, total = getOtherRunStats(name)
-            if total > 0 then
-                tt:AddDoubleLine("Лучшее за сезон (в таймер/всего)", timed .. "/" .. total, 1, 0.82, 0, 1, 1, 1)
-            else
-                tt:AddDoubleLine("Лучшее за сезон", "|cffffd100Загрузка...|r", 1, 0.82, 0, 1, 0.82, 0)
-                pcall(function()
-                    C_MythicPlus.RequestPlayerStat(name)
-                end)
-                C_Timer:After(1, function()
-                    if SMPTaboo:IsShown() then
-                        SMPTaboo:RefreshTooltip()
-                    end
-                end)
-                C_Timer:After(3, function()
-                    if SMPTaboo:IsShown() then
-                        SMPTaboo:RefreshTooltip()
-                    end
-                end)
-            end
-        end
+        return liveCountdown
     end
+
+    if isLocal then
+        local timed, total = SMPRequest:GetLocalRunStats()
+        if total > 0 then
+            addPair(tt, "Забеги (в таймер/всего)", timed .. "/" .. total)
+        end
+    elseif stats and stats.total > 0 then
+        addPair(tt, "Лучшее за сезон (в таймер/всего)", stats.timed .. "/" .. stats.total)
+    else
+        addPair(tt, "Лучшее за сезон", SMPRequest:GetStatusText(statsState) or "-", DIM)
+    end
+
+    return liveCountdown
 end
 
 local seasonTicker = nil
@@ -568,12 +235,54 @@ local function stopSeasonTicker()
     end
 end
 
+function private.clearState()
+    private.currentTooltipGUID = nil
+    private.liveCountdown = false
+    private.seasonLineIndex = nil
+    stopSeasonTicker()
+end
+
+---@return boolean
+function private.isHovered()
+    if not private.currentTooltipGUID then return false end
+
+    if UnitExists("mouseover") and UnitGUID("mouseover") == private.currentTooltipGUID then
+        return true
+    end
+
+    local owner = GameTooltip:GetOwner()
+    if owner and owner ~= UIParent and owner.IsMouseOver then
+        return owner:IsMouseOver() == true
+    end
+
+    return false
+end
+
+---@return boolean
+local function updateSeasonCountdown()
+    local index = private.seasonLineIndex
+    if not index then return false end
+
+    local leftText = _G["GameTooltipTextLeft" .. index]
+    local rightText = _G["GameTooltipTextRight" .. index]
+    if not leftText or not rightText then return false end
+    if leftText:GetText() ~= private.seasonLineText then return false end
+
+    local timeLeft = C_MythicPlus.GetSeasonTimeLeft and C_MythicPlus.GetSeasonTimeLeft() or 0
+    if not timeLeft or timeLeft <= 0 then return false end
+
+    rightText:SetText(fmtCountdown(timeLeft))
+    return true
+end
+
 local function startSeasonTicker()
     stopSeasonTicker()
     seasonTicker = C_Timer:NewTicker(1, function()
-        if SMPTaboo:IsShown() then
-            SMPTaboo:RefreshTooltip()
-        else
+        if not GameTooltip:IsShown() or not private.isHovered() then
+            private.clearState()
+            return
+        end
+        if not updateSeasonCountdown() then
             stopSeasonTicker()
         end
     end)
@@ -586,41 +295,24 @@ local function onTooltipSetUnit(tt)
     if not unit or not UnitIsPlayer(unit) then return end
 
     private.currentTooltipGUID = UnitGUID(unit)
-    renderTooltip(tt, unit)
-    startSeasonTicker()
+    private.liveCountdown = renderTooltip(tt, unit)
+
+    if private.liveCountdown then
+        startSeasonTicker()
+    else
+        stopSeasonTicker()
+    end
 end
 
 local function onTooltipCleared()
-    private.currentTooltipGUID = nil
-    stopSeasonTicker()
+    if private.isRefreshing then return end
+    private.clearState()
 end
 
+---@return boolean
 function private.isAvailable()
     return C_MythicPlus and C_MythicPlus.IsMythicPlusActive and C_MythicPlus.IsMythicPlusActive()
-        and C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor
-end
-
-function private.testLadderSafety()
-    if not C_Ladder or not C_Ladder.RequestSearch then
-        private.ladderSafe = false
-		SMP:Print("|cffff0000SMP|r: C_Ladder not available, ladder rank disabled")
-        return
-    end
-
-	SMP:Print("|c00ff00SMP|r: Testing C_Ladder.RequestSearch...")
-
-    local ok, err = pcall(function()
-        C_Ladder.RequestSearch(MYTHIC_PLUS_BRACKET, "SMPTest")
-    end)
-
-    if ok then
-        private.ladderSafe = true
-		SMP:Print("|c00ff00SMP|r: C_Ladder.RequestSearch OK, ladder rank enabled")
-    else
-        private.ladderSafe = false
-		SMP:Print("|cffff0000SMP|r: C_Ladder.RequestSearch FAILED.")
-		SMP:Print("|cffff0000SMP|r: Ladder rank disabled")
-    end
+        and C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor ~= nil
 end
 
 function private.patchLadderFrames()
@@ -650,14 +342,16 @@ end
 
 function SMPTaboo:Initialize()
     private.patchLadderFrames()
-    C_Timer:After(2, function()
-        private.testLadderSafety()
-        if C_MythicPlus.RequestMapInfo then
-            C_MythicPlus.RequestMapInfo()
+
+    SMPRequest:Subscribe(function()
+        if SMPTaboo:IsShown() then
+            SMPTaboo:RefreshTooltip()
         end
     end)
+
     GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
     GameTooltip:HookScript("OnTooltipCleared", onTooltipCleared)
+    GameTooltip:HookScript("OnHide", onTooltipCleared)
 end
 
 ---@return boolean
@@ -667,13 +361,26 @@ end
 
 function SMPTaboo:RefreshTooltip()
     if private.isRefreshing or not private.currentTooltipGUID then return end
-    if not GameTooltip:IsShown() then return end
+
+    if not GameTooltip:IsShown() then
+        private.clearState()
+        return
+    end
 
     local _, tooltipUnit = GameTooltip:GetUnit()
-    if not tooltipUnit or not UnitExists(tooltipUnit) then return end
-    if UnitGUID(tooltipUnit) ~= private.currentTooltipGUID then return end
+    if not tooltipUnit or not UnitExists(tooltipUnit)
+       or UnitGUID(tooltipUnit) ~= private.currentTooltipGUID
+       or not private.isHovered()
+    then
+        private.clearState()
+        return
+    end
 
     private.isRefreshing = true
-    GameTooltip:SetUnit(tooltipUnit)
-    private.isRefreshing = nil
+    local ok, err = pcall(GameTooltip.SetUnit, GameTooltip, tooltipUnit)
+    private.isRefreshing = false
+
+    if not ok then
+        SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
+    end
 end

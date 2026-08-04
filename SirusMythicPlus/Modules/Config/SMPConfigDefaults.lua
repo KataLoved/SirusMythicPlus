@@ -14,6 +14,12 @@ function SMPConfigDefaults:Load()
                 abbreviateDungeons = false,
             },
 
+            search = {
+                font = "Friz Quadrata TT",
+                fontSize = 13,
+                fontFlags = "",
+            },
+
             overlay = {
                 insertKeystoneAutomatically = true,
                 showMillisecondsWhenDungeonCompleted = false,
