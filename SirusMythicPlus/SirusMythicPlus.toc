@@ -4,6 +4,8 @@
 ## Author: |cfff50e5fNastyaLove|r
 ## Version: 1.4.1
 ## SavedVariables: SMPConfigDB, SMPOverlayDB
+## X-Sirus-Update: https://github.com/KataLoved/SirusMythicPlus/tree/master/SirusMythicPlus
+## X-Sirus-Category: 21
 
 # Libs
 embeds.xml
