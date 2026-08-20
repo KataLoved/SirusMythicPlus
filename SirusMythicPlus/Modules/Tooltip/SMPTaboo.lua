@@ -37,6 +37,7 @@ local DUNGEON_ABBREVIATIONS = {
 }
 
 private.currentTooltipGUID = nil
+private.currentTooltipName = nil
 private.isRefreshing = false
 private.liveCountdown = false
 
@@ -149,6 +150,54 @@ local function addSeasonLine(tt)
 end
 
 ---@param tt table
+---@param name string
+local function renderTooltipForLFGList(tt, name)
+	if not name then return end
+
+	local score = SMPRequest:GetMythicRating(name) or 0
+    if score <= 0 then return end
+
+    local stats, statsState = SMPRequest:GetPlayerStats(name)
+    local rank = SMPRequest:GetLadderRank(name, false)
+
+	local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
+    if cfg.showSeparator ~= false then
+        tt:AddLine(" ")
+    end
+
+    local icon = ("|T%s:%d:%d:0:0|t "):format(MPLUS_ICON, ICON_SIZE, ICON_SIZE)
+    tt:AddLine(icon .. "|cff00ff00Mythic+|r", 1, 1, 1)
+
+    addSeasonLine(tt)
+
+    local rounded = math.floor(score)
+    addPair(tt, "Рейтинг M+", tostring(rounded), SMPLib:ScoreColorRGB(rounded))
+
+    if rank then
+        addPair(tt, "Место в ладдере", tostring(rank), SMPLib:RankColorRGB(rank))
+    end
+
+    local bestLevel = stats and stats.bestLevel
+    local keyText = fmtKey(bestLevel, stats and stats.bestDungeon)
+    if keyText then
+        addPair(tt, "Макс. ключ", keyText, SMPLib:KeyColorRGB(bestLevel))
+    else
+        addPair(tt, "Макс. ключ", SMPRequest:GetStatusText(statsState) or "-", DIM)
+    end
+
+    if IsShiftKeyDown() or cfg.showDungeonListAlways then
+        if stats then addDungeonList(tt, stats.dungeons) end
+        return
+    end
+
+    if stats and stats.total > 0 then
+        addPair(tt, "Лучшее за сезон (в таймер/всего)", stats.timed .. "/" .. stats.total)
+    else
+        addPair(tt, "Лучшее за сезон", SMPRequest:GetStatusText(statsState) or "-", DIM)
+    end
+end
+
+---@param tt table
 ---@param unit string
 ---@return boolean liveCountdown
 local function renderTooltip(tt, unit)
@@ -237,6 +286,7 @@ end
 
 function private.clearState()
     private.currentTooltipGUID = nil
+	private.currentTooltipName = nil
     private.liveCountdown = false
     private.seasonLineIndex = nil
     stopSeasonTicker()
@@ -244,15 +294,22 @@ end
 
 ---@return boolean
 function private.isHovered()
-    if not private.currentTooltipGUID then return false end
+    if not private.currentTooltipGUID and not private.currentTooltipName then return false end
 
-    if UnitExists("mouseover") and UnitGUID("mouseover") == private.currentTooltipGUID then
-        return true
+    if private.currentTooltipGUID then
+        if UnitExists("mouseover") and UnitGUID("mouseover") == private.currentTooltipGUID then
+            return true
+        end
+
+        local owner = GameTooltip:GetOwner()
+        if owner and owner ~= UIParent and owner.IsMouseOver then
+            return owner:IsMouseOver() == true
+        end
     end
 
-    local owner = GameTooltip:GetOwner()
-    if owner and owner ~= UIParent and owner.IsMouseOver then
-        return owner:IsMouseOver() == true
+    if private.currentTooltipName then
+        local leftText = _G["GameTooltipTextLeft1"]
+        return leftText and leftText:GetText() == private.currentTooltipName
     end
 
     return false
@@ -352,6 +409,21 @@ function SMPTaboo:Initialize()
     GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
     GameTooltip:HookScript("OnTooltipCleared", onTooltipCleared)
     GameTooltip:HookScript("OnHide", onTooltipCleared)
+
+	hooksecurefunc("LFGListApplicantMember_OnEnter", function(self)
+        local applicantID = self:GetParent().applicantID
+        local memberIdx = self.memberIdx
+
+        if not applicantID or not memberIdx then return end
+
+        local name = C_LFGList.GetApplicantMemberInfo(applicantID, memberIdx)
+        if not name then return end
+
+        if SMPRequest:GetMythicRating(name) then
+            private.currentTooltipName = name
+            renderTooltipForLFGList(GameTooltip, name)
+        end
+    end)
 end
 
 ---@return boolean
@@ -360,24 +432,34 @@ function SMPTaboo:IsShown()
 end
 
 function SMPTaboo:RefreshTooltip()
-    if private.isRefreshing or not private.currentTooltipGUID then return end
+    if private.isRefreshing then return end
 
     if not GameTooltip:IsShown() then
         private.clearState()
         return
     end
 
-    local _, tooltipUnit = GameTooltip:GetUnit()
-    if not tooltipUnit or not UnitExists(tooltipUnit)
-       or UnitGUID(tooltipUnit) ~= private.currentTooltipGUID
-       or not private.isHovered()
-    then
-        private.clearState()
-        return
+	if private.currentTooltipGUID then
+		local _, tooltipUnit = GameTooltip:GetUnit()
+        if not tooltipUnit or not UnitExists(tooltipUnit)
+           or UnitGUID(tooltipUnit) ~= private.currentTooltipGUID
+           or not private.isHovered()
+        then
+            private.clearState()
+            return
+        end
+	end
+
+	if private.currentTooltipName then
+        local leftText = _G["GameTooltipTextLeft1"]
+        if not leftText or leftText:GetText() ~= private.currentTooltipName then
+            private.clearState()
+            return
+        end
     end
 
-    private.isRefreshing = true
-    local ok, err = pcall(GameTooltip.SetUnit, GameTooltip, tooltipUnit)
+	private.isRefreshing = true
+	local ok, err = pcall(GameTooltip.SetUnit, GameTooltip, tooltipUnit)
     private.isRefreshing = false
 
     if not ok then
