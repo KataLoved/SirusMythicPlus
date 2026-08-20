@@ -37,7 +37,7 @@ local DUNGEON_ABBREVIATIONS = {
 }
 
 private.currentTooltipGUID = nil
-private.currentTooltipName = nil
+--private.currentTooltipName = nil
 private.isRefreshing = false
 private.liveCountdown = false
 
@@ -149,53 +149,53 @@ local function addSeasonLine(tt)
     return false
 end
 
----@param tt table
----@param name string
-local function renderTooltipForLFGList(tt, name)
-	if not name then return end
+-- ---@param tt table
+-- ---@param name string
+-- local function renderTooltipForLFGList(tt, name)
+-- 	if not name then return end
 
-	local score = SMPRequest:GetMythicRating(name) or 0
-    if score <= 0 then return end
+-- 	local score = SMPRequest:GetMythicRating(name) or 0
+--     if score <= 0 then return end
 
-    local stats, statsState = SMPRequest:GetPlayerStats(name)
-    local rank = SMPRequest:GetLadderRank(name, false)
+--     local stats, statsState = SMPRequest:GetPlayerStats(name)
+--     local rank = SMPRequest:GetLadderRank(name, false)
 
-	local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
-    if cfg.showSeparator ~= false then
-        tt:AddLine(" ")
-    end
+-- 	local cfg = SMPConfig:GetProfileConfig("tooltip") or {}
+--     if cfg.showSeparator ~= false then
+--         tt:AddLine(" ")
+--     end
 
-    local icon = ("|T%s:%d:%d:0:0|t "):format(MPLUS_ICON, ICON_SIZE, ICON_SIZE)
-    tt:AddLine(icon .. "|cff00ff00Mythic+|r", 1, 1, 1)
+--     local icon = ("|T%s:%d:%d:0:0|t "):format(MPLUS_ICON, ICON_SIZE, ICON_SIZE)
+--     tt:AddLine(icon .. "|cff00ff00Mythic+|r", 1, 1, 1)
 
-    addSeasonLine(tt)
+--     addSeasonLine(tt)
 
-    local rounded = math.floor(score)
-    addPair(tt, "Рейтинг M+", tostring(rounded), SMPLib:ScoreColorRGB(rounded))
+--     local rounded = math.floor(score)
+--     addPair(tt, "Рейтинг M+", tostring(rounded), SMPLib:ScoreColorRGB(rounded))
 
-    if rank then
-        addPair(tt, "Место в ладдере", tostring(rank), SMPLib:RankColorRGB(rank))
-    end
+--     if rank then
+--         addPair(tt, "Место в ладдере", tostring(rank), SMPLib:RankColorRGB(rank))
+--     end
 
-    local bestLevel = stats and stats.bestLevel
-    local keyText = fmtKey(bestLevel, stats and stats.bestDungeon)
-    if keyText then
-        addPair(tt, "Макс. ключ", keyText, SMPLib:KeyColorRGB(bestLevel))
-    else
-        addPair(tt, "Макс. ключ", SMPRequest:GetStatusText(statsState) or "-", DIM)
-    end
+--     local bestLevel = stats and stats.bestLevel
+--     local keyText = fmtKey(bestLevel, stats and stats.bestDungeon)
+--     if keyText then
+--         addPair(tt, "Макс. ключ", keyText, SMPLib:KeyColorRGB(bestLevel))
+--     else
+--         addPair(tt, "Макс. ключ", SMPRequest:GetStatusText(statsState) or "-", DIM)
+--     end
 
-    if IsShiftKeyDown() or cfg.showDungeonListAlways then
-        if stats then addDungeonList(tt, stats.dungeons) end
-        return
-    end
+--     if IsShiftKeyDown() or cfg.showDungeonListAlways then
+--         if stats then addDungeonList(tt, stats.dungeons) end
+--         return
+--     end
 
-    if stats and stats.total > 0 then
-        addPair(tt, "Лучшее за сезон (в таймер/всего)", stats.timed .. "/" .. stats.total)
-    else
-        addPair(tt, "Лучшее за сезон", SMPRequest:GetStatusText(statsState) or "-", DIM)
-    end
-end
+--     if stats and stats.total > 0 then
+--         addPair(tt, "Лучшее за сезон (в таймер/всего)", stats.timed .. "/" .. stats.total)
+--     else
+--         addPair(tt, "Лучшее за сезон", SMPRequest:GetStatusText(statsState) or "-", DIM)
+--     end
+-- end
 
 ---@param tt table
 ---@param unit string
@@ -286,7 +286,7 @@ end
 
 function private.clearState()
     private.currentTooltipGUID = nil
-	private.currentTooltipName = nil
+--	private.currentTooltipName = nil
     private.liveCountdown = false
     private.seasonLineIndex = nil
     stopSeasonTicker()
@@ -294,7 +294,8 @@ end
 
 ---@return boolean
 function private.isHovered()
-    if not private.currentTooltipGUID and not private.currentTooltipName then return false end
+    if not private.currentTooltipGUID then return false end
+	--and not private.currentTooltipName 
 
     if private.currentTooltipGUID then
         if UnitExists("mouseover") and UnitGUID("mouseover") == private.currentTooltipGUID then
@@ -307,10 +308,10 @@ function private.isHovered()
         end
     end
 
-    if private.currentTooltipName then
-        local leftText = _G["GameTooltipTextLeft1"]
-        return leftText and leftText:GetText() == private.currentTooltipName
-    end
+--    if private.currentTooltipName then
+--        local leftText = _G["GameTooltipTextLeft1"]
+--        return leftText and leftText:GetText() == private.currentTooltipName
+--    end
 
     return false
 end
@@ -410,31 +411,32 @@ function SMPTaboo:Initialize()
     GameTooltip:HookScript("OnTooltipCleared", onTooltipCleared)
     GameTooltip:HookScript("OnHide", onTooltipCleared)
 
-	hooksecurefunc("LFGListApplicantMember_OnEnter", function(self)
-        local applicantID = self:GetParent().applicantID
-        local memberIdx = self.memberIdx
-
-        if not applicantID or not memberIdx then return end
-
-        local name = C_LFGList.GetApplicantMemberInfo(applicantID, memberIdx)
-        if not name then return end
-
-		local activeEntryInfo = C_LFGList.GetActiveEntryInfo()
-		if activeEntryInfo then
-			local activityInfo = C_LFGList.GetActivityInfoTable(activeEntryInfo.activityID)
-			if not activityInfo or not activityInfo.isMythicPlusActivity then return end
-		end
-
-        if SMPRequest:GetMythicRating(name) then
-            private.currentTooltipName = name
-            renderTooltipForLFGList(GameTooltip, name)
-        end
-    end)
+--	hooksecurefunc("LFGListApplicantMember_OnEnter", function(self)
+--        local applicantID = self:GetParent().applicantID
+--        local memberIdx = self.memberIdx
+--
+--        if not applicantID or not memberIdx then return end
+--
+--        local name = C_LFGList.GetApplicantMemberInfo(applicantID, memberIdx)
+--        if not name then return end
+--
+--		local activeEntryInfo = C_LFGList.GetActiveEntryInfo()
+--		if activeEntryInfo then
+--			local activityInfo = C_LFGList.GetActivityInfoTable(activeEntryInfo.activityID)
+--			if not activityInfo or not activityInfo.isMythicPlusActivity then return end
+--		end
+--
+--        if SMPRequest:GetMythicRating(name) then
+--            private.currentTooltipName = name
+--            renderTooltipForLFGList(GameTooltip, name)
+--        end
+--    end)
 end
 
 ---@return boolean
 function SMPTaboo:IsShown()
-    return private.currentTooltipGUID ~= nil or private.currentTooltipName ~= nil
+    return private.currentTooltipGUID ~= nil
+--  or private.currentTooltipName ~= nil
 end
 
 function SMPTaboo:RefreshTooltip()
@@ -464,19 +466,19 @@ function SMPTaboo:RefreshTooltip()
         end
     end
 
-    if private.currentTooltipName then
-        local leftText = _G["GameTooltipTextLeft1"]
-        if not leftText or leftText:GetText() ~= private.currentTooltipName then
-            private.clearState()
-            return
-        end
-
-        private.isRefreshing = true
-        local ok = pcall(renderTooltipForLFGList, GameTooltip, private.currentTooltipName)
-        private.isRefreshing = false
-
-        if not ok then
-            SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
-        end
-    end
+--    if private.currentTooltipName then
+--        local leftText = _G["GameTooltipTextLeft1"]
+--        if not leftText or leftText:GetText() ~= private.currentTooltipName then
+--            private.clearState()
+--            return
+--        end
+--
+--        private.isRefreshing = true
+--        local ok = pcall(renderTooltipForLFGList, GameTooltip, private.currentTooltipName)
+--        private.isRefreshing = false
+--
+--        if not ok then
+--            SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
+--        end
+--    end
 end

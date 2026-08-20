@@ -21,6 +21,7 @@ local STATE = {
 SMPRequest.State = STATE
 
 local REQUEST_TIMEOUT    = 10
+local STAT_REQUEST_INTERVAL = 2
 local READY_TTL          = 290
 local EMPTY_COOLDOWN     = 120
 local NOT_FOUND_COOLDOWN = 300
@@ -44,12 +45,13 @@ private.entries = {}
 private.ladderPlayers = {}
 ---@type table<string, table> lowercase текст поиска -> {names = {lowercase имена}, at}
 private.ladderSearches = {}
----@type table<string, table|false> lowercase имя -> снапшот статистики или false («посчитано, данных нет»)
+---@type table<string, table|false> lowercase имя -> {data = snapshot|nil, at = timestamp}
 private.statCache = {}
 private.localCache = nil
 
 private.statInFlight = nil
 private.statQueue = nil
+private.statNextRequestAt = 0
 private.searchInFlight = nil
 private.searchQueue = nil
 private.ladderBlockedUntil = 0
@@ -151,6 +153,10 @@ local function isBlocked(entry)
     return false
 end
 
+local function isFresh(timestamp, ttl)
+    return timestamp and (now() - timestamp) < ttl
+end
+
 function private.notify()
     if private.notifyScheduled then return end
     private.notifyScheduled = true
@@ -236,6 +242,11 @@ function private.tick()
             end
             entry.queued = nil
         end
+    end
+
+    if private.statQueue and not private.statInFlight and t >= private.statNextRequestAt then
+        private.pumpStatQueue()
+        changed = true
     end
 
     if changed then
@@ -389,6 +400,14 @@ function private.requestStat(name, lower, force)
         return entry.state
     end
 
+    if now() < private.statNextRequestAt then
+        private.statQueue = { name = name, lower = lower }
+        setState(entry, STATE.PENDING)
+        entry.queued = true
+        private.ensureWatchdog()
+        return entry.state
+    end
+
     if private.statInFlight and private.statInFlight ~= lower then
         private.statQueue = { name = name, lower = lower }
         setState(entry, STATE.PENDING)
@@ -399,6 +418,7 @@ function private.requestStat(name, lower, force)
 
     entry.queued = nil
     private.statInFlight = lower
+    private.statNextRequestAt = now() + STAT_REQUEST_INTERVAL
     setState(entry, STATE.PENDING)
     private.ensureWatchdog()
     private.counters.sent = private.counters.sent + 1
@@ -432,6 +452,11 @@ function private.pumpStatQueue()
     if private.statInFlight then return end
 
     private.statQueue = nil
+    if now() < private.statNextRequestAt then
+        private.statQueue = queued
+        private.ensureWatchdog()
+        return
+    end
 
     local entry = private.entries[statKey(queued.lower)]
     if entry then
@@ -455,7 +480,10 @@ function private.resolveStat(lower, success)
         entry.queued = nil
         if success then
             local snapshot = entry.name and private.readPlayerStats(entry.name) or nil
-            private.statCache[lower] = snapshot or false
+            private.statCache[lower] = {
+                data = snapshot,
+                at = now(),
+            }
             if snapshot and snapshot.count > 0 then
                 setState(entry, STATE.READY)
             else
@@ -706,17 +734,24 @@ function SMPRequest:GetPlayerStats(playerName)
 
     local lower = lowerStr(name)
     local cached = private.statCache[lower]
-    if cached == nil then
-        cached = private.readPlayerStats(name) or false
-        private.statCache[lower] = cached
+    local stats = cached and cached.data
+    if not cached or not isFresh(cached.at, READY_TTL) then
+        local entry = getEntry(statKey(lower), "stat", name)
+        entry.state = STATE.IDLE
+        entry.retryAt = nil
+        stats = private.readPlayerStats(name)
+        private.statCache[lower] = {
+            data = stats,
+            at = now(),
+        }
     end
 
-    if cached and cached.count > 0 then
+    if stats and stats.count > 0 then
         local entry = getEntry(statKey(lower), "stat", name)
         if entry.state ~= STATE.PENDING and entry.state ~= STATE.READY then
             setState(entry, STATE.READY)
         end
-        return cached, STATE.READY
+        return stats, STATE.READY
     end
 
     return nil, private.requestStat(name, lower, false)
@@ -800,6 +835,15 @@ function SMPRequest:GetLadderRank(playerName, isLocal)
 
     local lower = lowerStr(name)
     local player = private.ladderPlayers[lower]
+    if player and not isFresh(player.at, READY_TTL) then
+        private.ladderPlayers[lower] = nil
+        local entry = private.entries[searchKey(lower)]
+        if entry then
+            entry.state = STATE.IDLE
+            entry.retryAt = nil
+        end
+        player = nil
+    end
     if not player then
         private.harvestSearchResults(nil)
         player = private.ladderPlayers[lower]
@@ -832,7 +876,10 @@ function SMPRequest:GetSearchResults(text)
     local state = entry and entry.state or STATE.IDLE
 
     local search = private.ladderSearches[lower]
-    if not search then return {}, state end
+    if not search or not isFresh(search.at, READY_TTL) then
+        if search then private.ladderSearches[lower] = nil end
+        return {}, state
+    end
 
     local results = {}
     for _, nameLower in ipairs(search.names) do
@@ -976,6 +1023,7 @@ function SMPRequest:Reset()
     private.statQueue = nil
     private.searchInFlight = nil
     private.searchQueue = nil
+    private.statNextRequestAt = 0
     private.ladderBlockedUntil = 0
     private.ladderSafe = true
     private.counters = { sent = 0, suppressed = 0, timedOut = 0, throttled = 0 }

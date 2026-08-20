@@ -343,10 +343,11 @@ function SMPPlayerSearch:CreateFrame()
     frame:SetWidth(720)
     frame:SetHeight(430)
     frame:SetLayout("Fill")
-    frame:EnableResize(false)
+    frame:EnableResize(true)
 
     local wowFrame = frame.frame
     if wowFrame then
+        wowFrame:SetMinResize(720, 430)
         if wowFrame.SetBackdropBorderColor then
             wowFrame:SetBackdropBorderColor(PURPLE[1], PURPLE[2], PURPLE[3], 1)
         end
@@ -512,6 +513,7 @@ function SMPPlayerSearch:Toggle()
 end
 
 function private:RenderPlayerList(selectedName)
+    local scrollPosition = private.leftScroll:GetVerticalScroll()
     clearScrollChild(private.leftScroll)
 
     if #private.searchResults == 0 then
@@ -561,6 +563,12 @@ function private:RenderPlayerList(selectedName)
 
         addRowToScroll(private.leftScroll, row, ROW_HEIGHT)
     end
+
+    C_Timer:After(0, function()
+        if not private.leftScroll or private.leftScroll.staleChild then return end
+        local maxScroll = math.max(0, private.leftScroll:GetVerticalScrollRange())
+        private.leftScroll:SetVerticalScroll(math.min(scrollPosition, maxScroll))
+    end)
 end
 
 function private:RenderPlayerDetails(selectedName)

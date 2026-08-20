@@ -37,7 +37,7 @@ local DBICON10_MINOR = tonumber(("$Rev: 21 $"):match("(%d+)"))
 if not LibStub then error(DBICON10 .. " requires LibStub.") end
 local ldb = LibStub("LibDataBroker-1.1", true)
 if not ldb then error(DBICON10 .. " requires LibDataBroker-1.1.") end
-local lib, oldminor = LibStub:NewLibrary(DBICON10, DBICON10_MINOR)
+local lib = LibStub:NewLibrary(DBICON10, DBICON10_MINOR)
 if not lib then return end
 
 lib.disabled = lib.disabled or nil
@@ -47,33 +47,9 @@ lib.notCreated = lib.notCreated or {}
 
 function lib:IconCallback(event, name, key, value, dataobj)
 	if lib.objects[name] then
-		if key == "icon" then
-			lib.objects[name].icon:SetTexture(dataobj and dataobj.icon or value)
-		elseif key == "iconCoords" then
-			lib.objects[name].icon:UpdateCoord()
-		elseif key == "iconR" then
-			local _, g, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(value, g, b)
-		elseif key == "iconG" then
-			local r, _, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, value, b)
-		elseif key == "iconB" then
-			local r, g = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, g, value)
-		end
+		lib.objects[name].icon:SetTexture(dataobj.icon)
 	end
 end
-
-if oldminor and oldminor < 21 then
-	if not lib.newCallbackRegistered then
-		ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconCoords", "IconCallback")
-		ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconR", "IconCallback")
-		ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconG", "IconCallback")
-		ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconB", "IconCallback")
-		lib.newCallbackRegistered = true
-	end
-end
-
 if not lib.callbackRegistered then
 	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__icon", "IconCallback")
 	lib.callbackRegistered = true
@@ -126,6 +102,8 @@ local minimapShapes = {
 	["TRICORNER-BOTTOMRIGHT"] = {false, true, true, true},
 }
 
+local math_max, math_min = math.max, math.min
+
 local function updatePosition(button)
 	local angle = math.rad(button.db and button.db.minimapPos or button.minimapPos or 225)
 	local x, y, q = math.cos(angle), math.sin(angle), 1
@@ -137,8 +115,8 @@ local function updatePosition(button)
 		x, y = x*80, y*80
 	else
 		local diagRadius = 103.13708498985 --math.sqrt(2*(80)^2)-10
-		x = math.max(-80, math.min(x*diagRadius, 80))
-		y = math.max(-80, math.min(y*diagRadius, 80))
+		x = math_max(-80, math_min(x*diagRadius, 80))
+		y = math_max(-80, math_min(y*diagRadius, 80))
 	end
 	button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
@@ -189,11 +167,7 @@ local function createButton(name, object, db)
 	overlay:SetWidth(53); overlay:SetHeight(53)
 	overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 	overlay:SetPoint("TOPLEFT")
-	local background = button:CreateTexture(nil, "BACKGROUND")
-	background:SetSize(20, 20)
-	background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
-	background:SetPoint("TOPLEFT", 7, -5)
-	local icon = button:CreateTexture(nil, "ARTWORK")
+	local icon = button:CreateTexture(nil, "BACKGROUND")
 	icon:SetWidth(20); icon:SetHeight(20)
 	icon:SetTexture(object.icon)
 	icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
@@ -268,6 +242,9 @@ end
 function lib:IsRegistered(name)
 	return (lib.objects[name] or lib.notCreated[name]) and true or false
 end
+function lib:GetMinimapButton(name)
+	return lib.objects[name]
+end
 function lib:Refresh(name, db)
 	if lib.disabled then return end
 	check(name)
@@ -297,4 +274,3 @@ function lib:DisableLibrary()
 		object:Hide()
 	end
 end
-

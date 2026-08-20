@@ -2,7 +2,7 @@
 ## Title: |cff00ff00Sirus|r|cffffffffMythicPlus|r
 ## Notes: Показывает рейтинг Мифик+, лучший ключ и список данжей в тултипе
 ## Author: |cfff50e5fNastyaLove|r
-## Version: 1.4.1
+## Version: 1.4.2
 ## SavedVariables: SMPConfigDB, SMPOverlayDB
 ## X-Sirus-Update: https://github.com/KataLoved/SirusMythicPlus/tree/master/SirusMythicPlus
 ## X-Sirus-Category: 21
