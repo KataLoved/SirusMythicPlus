@@ -419,6 +419,12 @@ function SMPTaboo:Initialize()
         local name = C_LFGList.GetApplicantMemberInfo(applicantID, memberIdx)
         if not name then return end
 
+		local activeEntryInfo = C_LFGList.GetActiveEntryInfo()
+		if activeEntryInfo then
+			local activityInfo = C_LFGList.GetActivityInfoTable(activeEntryInfo.activityID)
+			if not activityInfo or not activityInfo.isMythicPlusActivity then return end
+		end
+
         if SMPRequest:GetMythicRating(name) then
             private.currentTooltipName = name
             renderTooltipForLFGList(GameTooltip, name)
@@ -428,7 +434,7 @@ end
 
 ---@return boolean
 function SMPTaboo:IsShown()
-    return private.currentTooltipGUID ~= nil
+    return private.currentTooltipGUID ~= nil or private.currentTooltipName ~= nil
 end
 
 function SMPTaboo:RefreshTooltip()
@@ -439,8 +445,8 @@ function SMPTaboo:RefreshTooltip()
         return
     end
 
-	if private.currentTooltipGUID then
-		local _, tooltipUnit = GameTooltip:GetUnit()
+    if private.currentTooltipGUID then
+        local _, tooltipUnit = GameTooltip:GetUnit()
         if not tooltipUnit or not UnitExists(tooltipUnit)
            or UnitGUID(tooltipUnit) ~= private.currentTooltipGUID
            or not private.isHovered()
@@ -448,21 +454,29 @@ function SMPTaboo:RefreshTooltip()
             private.clearState()
             return
         end
-	end
 
-	if private.currentTooltipName then
+        private.isRefreshing = true
+        local ok, err = pcall(GameTooltip.SetUnit, GameTooltip, tooltipUnit)
+        private.isRefreshing = false
+
+        if not ok then
+            SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
+        end
+    end
+
+    if private.currentTooltipName then
         local leftText = _G["GameTooltipTextLeft1"]
         if not leftText or leftText:GetText() ~= private.currentTooltipName then
             private.clearState()
             return
         end
-    end
 
-	private.isRefreshing = true
-	local ok, err = pcall(GameTooltip.SetUnit, GameTooltip, tooltipUnit)
-    private.isRefreshing = false
+        private.isRefreshing = true
+        local ok = pcall(renderTooltipForLFGList, GameTooltip, private.currentTooltipName)
+        private.isRefreshing = false
 
-    if not ok then
-        SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
+        if not ok then
+            SMPDebug:Log("ERROR", "[SMPTaboo] RefreshTooltip: " .. tostring(err))
+        end
     end
 end
